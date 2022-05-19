@@ -8,6 +8,8 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, TopKPooling, global_mean_pool
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 
+
+num_features = 9
 embedding_size = 64
 
 
@@ -19,7 +21,7 @@ class GCN(torch.nn.Module):
 
         # GCN layers
         # Syntax is GCNConv(channel_in, channel_out)
-        self.initial_conv = GCNConv(data.num_features, embedding_size)
+        self.initial_conv = GCNConv(num_features, embedding_size)
         self.conv1 = GCNConv(embedding_size, embedding_size)
         self.conv2 = GCNConv(embedding_size, embedding_size)
         self.conv3 = GCNConv(embedding_size, embedding_size)

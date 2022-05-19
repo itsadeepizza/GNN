@@ -1,5 +1,6 @@
-import torch
+# https://colab.research.google.com/drive/16GBgwYR2ECiXVxA1BoLxYshKczNMeEAQ?usp=sharing#scrollTo=df-9E4kbgOuU
 
+import torch
 from model import GCN
 from torch_geometric.datasets import MoleculeNet
 from torch_geometric.data import DataLoader
