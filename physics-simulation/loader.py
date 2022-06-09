@@ -3,6 +3,7 @@
 import os
 import json
 import torch
+import encoder
 
 
 def _read_metadata(data_path):
@@ -74,6 +75,11 @@ def prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', is_rol
 if __name__ == "__main__":
     ds = prepare_data_from_tfds()
     device = "cpu"
+
+    model = encoder.Encoder_v()
+
+
+
     for features, labels in ds:
         features['position'] = torch.tensor(features['position']).to(device)
         features['n_particles_per_example'] = torch.tensor(features['n_particles_per_example']).to(device)
@@ -89,12 +95,20 @@ if __name__ == "__main__":
         `labels`: Float values tensor of size n x 2. It represents future positions to predict (or velocities ?)         
         """
         import matplotlib.pyplot as plt
-
-        for key, item in features.items():
-            print(key)
-            print(item.shape)
+        if not all(features["particle_type"] == 5):
+            print("AHIAhiAhi\n\n\n\n\n\nAhi")
+        # for key, item in features.items():
+        #     print(key)
+        #     print(item.shape)
         position = features["position"]
-        plt.scatter(x=position[:, 5, 0].numpy(), y=position[:, 5, 1].numpy())
-        plt.scatter(x=labels[:, 0].numpy(), y=labels[:, 1].numpy())
-        plt.show()
+        x = encoder.position2x(position)
+        v = model(x)
+        print(v)
+
+
+        # plt.scatter(x=position[:, 3, 0].numpy(), y=position[:, 3, 1].numpy(), color='y')
+        # plt.scatter(x=position[:, 4, 0].numpy(), y=position[:, 4, 1].numpy(), color='g')
+        # plt.scatter(x=position[:, 5, 0].numpy(), y=position[:, 5, 1].numpy(), color='r')
+        # plt.scatter(x=labels[:, 0].numpy(), y=labels[:, 1].numpy(), color='b')
+        # plt.show()
         input()
