@@ -18,7 +18,7 @@ def prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', is_rol
     import tensorflow_datasets as tfds
     from lib import reading_utils
     import tree
-    from tfrecord.torch.dataset import TFRecordDataset
+    # from tfrecord.torch.dataset import TFRecordDataset
     def prepare_inputs(tensor_dict):
         pos = tensor_dict['position']
         pos = tf.transpose(pos, perm=[1, 0, 2])
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     ds = prepare_data_from_tfds()
     device = "cpu"
 
-    model = encoder.Encoder_v()
+    model = encoder.Encoder()
 
 
 
@@ -94,16 +94,17 @@ if __name__ == "__main__":
 
         `labels`: Float values tensor of size n x 2. It represents future positions to predict (or velocities ?)         
         """
-        import matplotlib.pyplot as plt
+        # import matplotlib.pyplot as plt
         if not all(features["particle_type"] == 5):
             print("AHIAhiAhi\n\n\n\n\n\nAhi")
         # for key, item in features.items():
         #     print(key)
         #     print(item.shape)
         position = features["position"]
-        x = encoder.position2x(position)
-        v = model(x)
-        print(v)
+
+
+        data = model(position)
+        print(data)
 
 
         # plt.scatter(x=position[:, 3, 0].numpy(), y=position[:, 3, 1].numpy(), color='y')
