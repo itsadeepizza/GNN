@@ -4,6 +4,7 @@ import os
 import json
 import torch
 import encoder
+import processor
 
 
 def _read_metadata(data_path):
@@ -76,7 +77,9 @@ if __name__ == "__main__":
     ds = prepare_data_from_tfds()
     device = "cpu"
 
-    model = encoder.Encoder()
+    encoderNN = encoder.Encoder()
+    processorNN = processor.Processor()
+
 
 
 
@@ -103,8 +106,9 @@ if __name__ == "__main__":
         position = features["position"]
 
 
-        data = model(position)
+        data = encoderNN(position)
         print(data)
+        processorNN(data)
 
 
         # plt.scatter(x=position[:, 3, 0].numpy(), y=position[:, 3, 1].numpy(), color='y')

@@ -21,7 +21,7 @@ class Encoder(nn.Module):
         self.e0 = torch.nn.Parameter(torch.rand(128))
         # self.u0 = torch.nn.Parameter(torch.rand(128))
 
-    def forward(self, position):
+    def forward(self, position) -> Data:
         # Linearize x vector Nx6x2 -> Nx12
         x = self.position2x(position)
         x = x.flatten(1)
@@ -30,12 +30,14 @@ class Encoder(nn.Module):
         x = self.l2(x)
         x = torch.relu(x)
         v = self.l3(x)
+        # a tensor of size N x 128 defined as N times e0
+        # TODO: Add LayerNorm
 
         edge_index = self.get_adjacency_matrix(position, self.r)
-        # a tensor of size N x 128 defined as N times e0
-
+        # a tensor of size E x 2
         Ne_ones = torch.ones(edge_index.shape[1], 1)
         edge_attr = torch.kron(Ne_ones, self.e0)
+        # a tensor of size E x 128
 
         data = Data(x=v, edge_index=edge_index, edge_attr=edge_attr)
         return data
