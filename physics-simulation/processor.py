@@ -76,12 +76,12 @@ class GN(MessagePassing):
         edge_attr_residual = self.edge_attr
 
         norm = compute_norm(edge_index, x)
-        x, self.edge_attr = self.propagate(edge_index=edge_index, x=x, idx=0, norm=norm)
+        x = self.propagate(edge_index=edge_index, x=x, idx=0, norm=norm)
         x = F.relu(x)
         self.edge_attr = F.relu(self.edge_attr)
 
         norm = compute_norm(edge_index, x)
-        x, self.edge_attr = self.propagate(edge_index=edge_index, x=x, idx=1, norm=norm)
+        x = self.propagate(edge_index=edge_index, x=x, idx=1, norm=norm)
         x = F.relu(x)
         self.edge_attr = F.relu(self.edge_attr)
 
@@ -89,9 +89,9 @@ class GN(MessagePassing):
         self.edge_attr = self.edge_layernorm(self.edge_attr)
 
         x = x + x_residual
-        edge_attr = self.edge_attr + edge_attr_residual
+        self.edge_attr  = self.edge_attr + edge_attr_residual
 
-        data = Data(x=x, edge_index=data.edge_index, edge_attr=edge_attr)
+        data = Data(x=x, edge_index=data.edge_index, edge_attr=self.edge_attr )
         return data
 
     def message(self, edge_index, x_i, x_j, idx, norm):
@@ -104,7 +104,7 @@ class GN(MessagePassing):
         # x: (E, node_in)
         x_updated = torch.cat([x_updated, x], dim=-1)
         x_updated = self.node_fn[idx](x_updated)
-        return x_updated, self.edge_attr
+        return x_updated
 
 
 
