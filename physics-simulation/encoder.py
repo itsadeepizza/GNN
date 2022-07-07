@@ -3,6 +3,8 @@ from torch import nn
 from torch_geometric import nn as tg_nn
 from torch_geometric.data import Data
 import matplotlib.pyplot as plt
+from torch_geometric.utils import add_self_loops
+
 
 class Encoder(nn.Module):
     """positions -> G graph
@@ -34,6 +36,8 @@ class Encoder(nn.Module):
         # TODO: Add LayerNorm
 
         edge_index = self.get_adjacency_matrix(position, self.r)
+        # TODO: Self loops or not self loops ?
+        # edge_index, _ = add_self_loops(edge_index, num_nodes=x.size(0))
         # a tensor of size E x 2
         Ne_ones = torch.ones(edge_index.shape[1], 1)
         edge_attr = torch.kron(Ne_ones, self.e0)

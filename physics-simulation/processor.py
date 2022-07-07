@@ -5,6 +5,8 @@ from torch_geometric.nn import MessagePassing, GATConv, TopKPooling, global_mean
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 from torch_geometric.data import Data
 from torch_geometric.nn.conv.cg_conv import CGConv
+from torch_geometric.utils import add_self_loops, degree
+
 
 from new_GATconv import New_GATConv
 
@@ -26,6 +28,14 @@ class Processor(torch.nn.Module):
 
         return out
 
+def compute_norm(edge_index, x):
+    # Step 3: Compute normalization.
+    row, col = edge_index
+    deg = degree(col, x.size(0), dtype=x.dtype)
+    deg_inv_sqrt = deg.pow(-0.5)
+    deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
+    norm = deg_inv_sqrt[row] * deg_inv_sqrt[col]
+    return norm
 
 
 class GN(MessagePassing):
@@ -54,16 +64,22 @@ class GN(MessagePassing):
         # e_features: (E, edge_in)
 
         x = data.x
+        # TODO: Bisogna aggiungere i self loops ai edge_index ? oppure no ?
+        #  E se si, poi bisogna togliergli alla fine? O bisognava metterli nell'encoder ?
+        # edge_index, _ = add_self_loops(data.edge_index, num_nodes=x.size(0))
         edge_index = data.edge_index
         edge_attr = data.edge_attr
 
         x_residual = x
         edge_attr_residual = edge_attr
-        x, edge_attr = self.propagate(edge_index=edge_index, x=x, edge_attr=edge_attr, idx=0)
+
+        norm = compute_norm(edge_index, x)
+        x, edge_attr = self.propagate(edge_index=edge_index, x=x, edge_attr=edge_attr, idx=0, norm=norm)
         x = F.relu(x)
         edge_attr = F.relu(edge_attr)
 
-        x, edge_attr = self.propagate(edge_index=edge_index, x=x, edge_attr=edge_attr, idx=1)
+        norm = compute_norm(edge_index, x)
+        x, edge_attr = self.propagate(edge_index=edge_index, x=x, edge_attr=edge_attr, idx=1, norm=norm)
         x = F.relu(x)
         edge_attr = F.relu(edge_attr)
 
@@ -73,13 +89,13 @@ class GN(MessagePassing):
         x = x + x_residual
         edge_attr = edge_attr + edge_attr_residual
 
-        data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+        data = Data(x=x, edge_index=data.edge_index, edge_attr=edge_attr)
         return data
 
-    def message(self, edge_index, x_i, x_j, edge_attr, idx):
+    def message(self, edge_index, x_i, x_j, edge_attr, idx, norm):
         edge_attr = torch.cat([x_i, x_j, edge_attr], dim=-1)
         edge_attr = self.edge_fn[idx](edge_attr)
-        return edge_attr
+        return norm.view(-1, 1) * edge_attr
 
     def update(self, x_updated, x, edge_attr, idx):
         # x_updated: (E, edge_out)
