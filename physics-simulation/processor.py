@@ -58,6 +58,8 @@ class GN(MessagePassing):
         self.node_layernorm = LayerNorm(node_out)
         self.edge_layernorm = LayerNorm(edge_out)
 
+        self.edge_attr = None
+
     def forward(self, data):
         # x: (E, node_in)
         # edge_index: (2, E)
@@ -68,41 +70,41 @@ class GN(MessagePassing):
         #  E se si, poi bisogna togliergli alla fine? O bisognava metterli nell'encoder ?
         # edge_index, _ = add_self_loops(data.edge_index, num_nodes=x.size(0))
         edge_index = data.edge_index
-        edge_attr = data.edge_attr
+        self.edge_attr = data.edge_attr
 
         x_residual = x
-        edge_attr_residual = edge_attr
+        edge_attr_residual = self.edge_attr
 
         norm = compute_norm(edge_index, x)
-        x, edge_attr = self.propagate(edge_index=edge_index, x=x, edge_attr=edge_attr, idx=0, norm=norm)
+        x, self.edge_attr = self.propagate(edge_index=edge_index, x=x, idx=0, norm=norm)
         x = F.relu(x)
-        edge_attr = F.relu(edge_attr)
+        self.edge_attr = F.relu(self.edge_attr)
 
         norm = compute_norm(edge_index, x)
-        x, edge_attr = self.propagate(edge_index=edge_index, x=x, edge_attr=edge_attr, idx=1, norm=norm)
+        x, self.edge_attr = self.propagate(edge_index=edge_index, x=x, idx=1, norm=norm)
         x = F.relu(x)
-        edge_attr = F.relu(edge_attr)
+        self.edge_attr = F.relu(self.edge_attr)
 
         x = self.node_layernorm(x)
-        edge_attr = self.edge_layernorm(edge_attr)
+        self.edge_attr = self.edge_layernorm(self.edge_attr)
 
         x = x + x_residual
-        edge_attr = edge_attr + edge_attr_residual
+        edge_attr = self.edge_attr + edge_attr_residual
 
         data = Data(x=x, edge_index=data.edge_index, edge_attr=edge_attr)
         return data
 
-    def message(self, edge_index, x_i, x_j, edge_attr, idx, norm):
-        edge_attr = torch.cat([x_i, x_j, edge_attr], dim=-1)
-        edge_attr = self.edge_fn[idx](edge_attr)
-        return norm.view(-1, 1) * edge_attr
+    def message(self, edge_index, x_i, x_j, idx, norm):
+        self.edge_attr = torch.cat([x_i, x_j, self.edge_attr], dim=-1)
+        self.edge_attr = self.edge_fn[idx](self.edge_attr)
+        return self.edge_attr * norm.view(-1, 1)
 
-    def update(self, x_updated, x, edge_attr, idx):
+    def update(self, x_updated, x, idx):
         # x_updated: (E, edge_out)
         # x: (E, node_in)
         x_updated = torch.cat([x_updated, x], dim=-1)
         x_updated = self.node_fn[idx](x_updated)
-        return x_updated, edge_attr
+        return x_updated, self.edge_attr
 
 
 
@@ -115,7 +117,10 @@ if __name__ == "__main__":
     position = torch.randn(N, 6, 2)
     # https://github.com/pyg-team/pytorch_geometric/blob/master/examples/mnist_nn_conv.py
     data = encoderNN(position)
-
+    print(data.edge_index)
     gn = GN(128, 128, 128, 128)
-    gn(data)
-    print(data)
+    print(data.edge_attr)
+    data = gn(data)
+    print(data.edge_attr)
+    data = gn(data)
+    print(data.edge_attr)
