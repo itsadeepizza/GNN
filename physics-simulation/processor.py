@@ -12,21 +12,24 @@ from new_GATconv import New_GATConv
 
 # A stack of M GNs, each GN has 2 hidden layers + LayerNorm at the end, size is always 128 for all layers
 
-M = 10
-
 class Processor(torch.nn.Module):
-    def __init__(self):
+    def __init__(
+            self,
+            node_in,
+            node_out,
+            edge_in,
+            edge_out,
+            M,
+            device):
         # Init parent
         super().__init__()
-
-        # GCN layers
-        # Syntax is GCNConv(channel_in, channel_out)
-        self.hidden1 = CGConv(128, dim=128) #GATConv could perform convolution over edge attributes (multi-dim weights features)
+        self.M = M
+        self.GNs = [GN(node_in, node_out, edge_in, edge_out, device=device) for i in range(self.M)]
 
     def forward(self, data: Data):
-        out = self.hidden1(data.x, data.edge_index, data.edge_attr)
-
-        return out
+        for i in range(self.M):
+            data = self.GNs[i](data)
+        return data
 
 def compute_norm(edge_index, x):
     # Step 3: Compute normalization.
@@ -45,18 +48,20 @@ class GN(MessagePassing):
             node_out,
             edge_in,
             edge_out,
+            device
     ):
         super().__init__(aggr='add')
-        self.edge_fn1 = Linear(2 * node_in + edge_in, edge_out)
-        self.edge_fn2 = Linear(2 * node_in + edge_in, edge_out)
+        self.device = device
+        self.edge_fn1 = Linear(2 * node_in + edge_in, edge_out, device=self.device)
+        self.edge_fn2 = Linear(2 * node_in + edge_in, edge_out, device=self.device)
         self.edge_fn = [self.edge_fn1, self.edge_fn2]
 
-        self.node_fn1 = Linear(node_in + edge_out, node_out)
-        self.node_fn2 = Linear(node_in + edge_out, node_out)
+        self.node_fn1 = Linear(node_in + edge_out, node_out, device=self.device)
+        self.node_fn2 = Linear(node_in + edge_out, node_out, device=self.device)
         self.node_fn = [self.node_fn1, self.node_fn2]
 
-        self.node_layernorm = LayerNorm(node_out)
-        self.edge_layernorm = LayerNorm(edge_out)
+        self.node_layernorm = LayerNorm(node_out, device=self.device)
+        self.edge_layernorm = LayerNorm(edge_out, device=self.device)
 
         self.edge_attr = None
 
@@ -75,15 +80,11 @@ class GN(MessagePassing):
         x_residual = x
         edge_attr_residual = self.edge_attr
 
-        norm = compute_norm(edge_index, x)
-        x = self.propagate(edge_index=edge_index, x=x, idx=0, norm=norm)
-        x = F.relu(x)
-        self.edge_attr = F.relu(self.edge_attr)
-
-        norm = compute_norm(edge_index, x)
-        x = self.propagate(edge_index=edge_index, x=x, idx=1, norm=norm)
-        x = F.relu(x)
-        self.edge_attr = F.relu(self.edge_attr)
+        for idx in [0, 1]:
+            norm = compute_norm(edge_index, x)
+            x = self.propagate(edge_index=edge_index, x=x, idx=idx, norm=norm)
+            x = F.relu(x)
+            self.edge_attr = F.relu(self.edge_attr)
 
         x = self.node_layernorm(x)
         self.edge_attr = self.edge_layernorm(self.edge_attr)
@@ -110,17 +111,24 @@ class GN(MessagePassing):
 
 if __name__ == "__main__":
     import encoder
+    from decoder import Decoder
+    from euler_integrator import integrator
 
-    encoderNN = encoder.Encoder()
+    device = torch.device("cuda")
+
+    encoderNN = encoder.Encoder(device=device)
+    proc = Processor(128, 128, 128, 128, M=10, device=device)
+    decoder = Decoder().to(device)
 
     N = 5
-    position = torch.randn(N, 6, 2)
+    position = torch.randn(N, 6, 2).to(device)
     # https://github.com/pyg-team/pytorch_geometric/blob/master/examples/mnist_nn_conv.py
     data = encoderNN(position)
     print(data.edge_index)
-    gn = GN(128, 128, 128, 128)
     print(data.edge_attr)
-    data = gn(data)
+    data = proc(data)
     print(data.edge_attr)
-    data = gn(data)
-    print(data.edge_attr)
+    acc = decoder(data)
+    print(acc)
+    last_pos = integrator(position, acc)
+    print("last_pos", last_pos)

@@ -3,9 +3,10 @@
 import os
 import json
 import torch
-import encoder
-import processor
-
+from processor import Processor
+from decoder import Decoder
+from encoder import Encoder
+from euler_integrator import integrator
 
 def _read_metadata(data_path):
     metadata_path = "dataset/water_drop/metadata.json"
@@ -75,12 +76,10 @@ def prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', is_rol
 
 if __name__ == "__main__":
     ds = prepare_data_from_tfds()
-    device = "cpu"
-
-    encoderNN = encoder.Encoder()
-    processorNN = processor.Processor()
-
-
+    device = torch.device("cpu")
+    encoder = Encoder(device=device)
+    proc = Processor(128, 128, 128, 128, M=10, device=device)
+    decoder = Decoder().to(device)
 
 
     for features, labels in ds:
@@ -95,7 +94,7 @@ if __name__ == "__main__":
         `position`: Float values tensor of size n x 6 x 2. It represents the last six positions (x, y) of the particles
         `n_particles_per_example`: Integer values Tensor of size 2 = [n1, n2] with n1 + n2 = n ????????? 
 
-        `labels`: Float values tensor of size n x 2. It represents future positions to predict (or velocities ?)         
+        `labels`: Float values tensor of size n x 2. It represents future positions to predict        
         """
         # import matplotlib.pyplot as plt
         if not all(features["particle_type"] == 5):
@@ -106,9 +105,16 @@ if __name__ == "__main__":
         position = features["position"]
 
 
-        data = encoderNN(position)
+
+        data = encoder(position)
         print(data)
-        processorNN(data)
+        data = proc(data)
+        print("Processed Data: ", data)
+        acc = decoder(data)
+        print("Acceleration:", acc)
+        labels_est = integrator(position, acc)
+        loss = torch.abs(labels_est - labels).sum()
+        print("Loss is :", loss)
 
 
         # plt.scatter(x=position[:, 3, 0].numpy(), y=position[:, 3, 1].numpy(), color='y')

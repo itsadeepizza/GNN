@@ -12,15 +12,16 @@ class Encoder(nn.Module):
     x.shape == Nx6x2
     v.shape == N x 128
     """
-    def __init__(self, c=5):
+    def __init__(self, device, c=5, edge_features_dim=128, node_features_dim=128):
         super().__init__() # from python 3.7
-        self.l1 = nn.Linear(2 * (c + 1), 32)
-        self.l2 = nn.Linear(32, 64)
-        self.l3 = nn.Linear(64, 128)
+        self.device = device
+        self.l1 = nn.Linear(2 * (c + 1), 32, device=device)
+        self.l2 = nn.Linear(32, 64, device=device)
+        self.l3 = nn.Linear(64, node_features_dim, device=device)
 
         self.r = 2
 
-        self.e0 = torch.nn.Parameter(torch.rand(128))
+        self.e0 = torch.nn.Parameter(torch.rand(edge_features_dim)).to(device)
         # self.u0 = torch.nn.Parameter(torch.rand(128))
 
     def forward(self, position) -> Data:
@@ -39,7 +40,7 @@ class Encoder(nn.Module):
         # TODO: Self loops or not self loops ?
         # edge_index, _ = add_self_loops(edge_index, num_nodes=x.size(0))
         # a tensor of size E x 2
-        Ne_ones = torch.ones(edge_index.shape[1], 1)
+        Ne_ones = torch.ones(edge_index.shape[1], 1, device=self.device)
         edge_attr = torch.kron(Ne_ones, self.e0)
         # a tensor of size E x 128
 
