@@ -83,10 +83,10 @@ if __name__ == "__main__":
 
 
     for features, labels in ds:
-        features['position'] = torch.tensor(features['position']).to(device)
+        features['position']                = torch.tensor(features['position']).to(device)
         features['n_particles_per_example'] = torch.tensor(features['n_particles_per_example']).to(device)
-        features['particle_type'] = torch.tensor(features['particle_type']).to(device)
-        labels = torch.tensor(labels).to(device)
+        features['particle_type']           = torch.tensor(features['particle_type']).to(device)
+        labels                              = torch.tensor(labels).to(device)
 
         """
         n is the nuber of particles

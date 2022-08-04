@@ -8,7 +8,7 @@ from torch_geometric.nn.conv.cg_conv import CGConv
 from torch_geometric.utils import add_self_loops, degree
 
 
-from new_GATconv import New_GATConv
+from physics_simulation.new_GATconv import New_GATConv
 
 # A stack of M GNs, each GN has 2 hidden layers + LayerNorm at the end, size is always 128 for all layers
 
@@ -25,6 +25,9 @@ class Processor(torch.nn.Module):
         super().__init__()
         self.M = M
         self.GNs = [GN(node_in, node_out, edge_in, edge_out, device=device) for i in range(self.M)]
+
+    def all_parameters(self):
+        return [param for GN in self.GNs for param in list(GN.parameters())]
 
     def forward(self, data: Data):
         for i in range(self.M):

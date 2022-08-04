@@ -21,7 +21,8 @@ class Encoder(nn.Module):
 
         self.r = 2
 
-        self.e0 = torch.nn.Parameter(torch.rand(edge_features_dim)).to(device)
+        # self.e0 = torch.nn.Parameter(torch.rand(edge_features_dim), requires_grad=True).to(device)
+        self.register_parameter(name='e0', param=torch.nn.Parameter(torch.rand(edge_features_dim, device=device)))
         # self.u0 = torch.nn.Parameter(torch.rand(128))
 
     def forward(self, position) -> Data:
