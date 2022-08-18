@@ -14,7 +14,7 @@ def _read_metadata(data_path):
         return json.loads(f.read())
 
 
-def prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', is_rollout=False, batch_size=2):
+def prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', is_rollout=False, batch_size=2, shuffle=True):
     import functools
     import tensorflow.compat.v1 as tf
     import tensorflow_datasets as tfds
@@ -66,7 +66,8 @@ def prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', is_rol
         ds = ds.flat_map(split_with_window)
         ds = ds.map(prepare_inputs)
         ds = ds.repeat()
-        ds = ds.shuffle(512)
+        if shuffle:
+            ds = ds.shuffle(512)
         ds = batch_concat(ds, batch_size)
     ds = tfds.as_numpy(ds)
     # for i in range(100):  # clear screen

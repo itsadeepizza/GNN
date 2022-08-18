@@ -43,6 +43,15 @@ class BaseTrainer():
     def init_logger(self):
         # TENSORBOARD AND LOGGING
         # Create directories for logs
+        layout = {
+            "Loss": {
+                "loss_plot": ["Multiline", ["loss_plot/train", 
+                                            "loss_plot/nomove",
+                                            "loss_plot/noacc",
+                                            "loss_plot/nojerk",
+                                            ]]
+            },
+        }
         now = datetime.datetime.now()
         now_str = now.strftime("%Y%m%d-%H%M%S")
         self.log_dir = "runs/fit/" + now_str
@@ -54,7 +63,8 @@ class BaseTrainer():
         os.makedirs(self.models_dir, exist_ok=True)
         os.makedirs(self.test_dir, exist_ok=True)
         self.writer = SummaryWriter(self.summary_dir)
-
+        # Custom scalar for overlapping plots
+        self.writer.add_custom_scalars(layout)
         self.mean_loss = 0
         self.timer = 0
         # LOG hyperparams
@@ -69,7 +79,7 @@ class BaseTrainer():
         # self.writer.add_text("Hyperparameters", log_hparams)
 
     def report(self, i):
-        self.writer.add_scalar("loss", self.mean_loss / self.interval_tensorboard, i)
+        self.writer.add_scalar("loss_plot/train", self.mean_loss / self.interval_tensorboard, i)
         tot_time = time.time() - self.timer
         self.timer = time.time()
         self.writer.add_scalar("steps_for_second", self.interval_tensorboard / tot_time, i)

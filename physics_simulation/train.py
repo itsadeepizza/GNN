@@ -10,9 +10,14 @@ from encoder import Encoder
 from euler_integrator import integrator
 from base_trainer import BaseTrainer
 from loader import prepare_data_from_tfds
-from noise import add_noise
 import numpy as np
+from benchmark import benchmark_nomove, benchmark_noacc, benchmark_nojerk
+import torch
 
+def add_noise(position: torch.Tensor):
+    std = 0.0003
+    noise = torch.randn(position.shape, device=position.device) * std
+    return position + noise
 
 class Trainer(BaseTrainer):
 
@@ -23,6 +28,10 @@ class Trainer(BaseTrainer):
         self.init_dataloader()
         self.init_logger()
 
+        self.mean_loss_nomove = 0
+        self.mean_loss_noacc = 0
+        self.mean_loss_nojerk = 0
+
         self.loss_list = []
         self.idx = 0
 
@@ -32,9 +41,9 @@ class Trainer(BaseTrainer):
     def init_models(self):
 
         # INITIALISING MODELS
-        self.encoder = Encoder(device=self.device)
-        self.proc = Processor(128, 128, 128, 128, M=10, device=self.device)
-        self.decoder = Decoder().to(self.device)
+        self.encoder = Encoder(device=self.device, edge_features_dim=self.n_features)
+        self.proc = Processor(self.n_features, self.n_features, self.n_features, self.n_features, M=self.M, device=self.device)
+        self.decoder = Decoder(node_features_dim=self.n_features).to(self.device)
 
         self.models = [self.encoder, self.proc, self.decoder]
 
@@ -77,9 +86,9 @@ class Trainer(BaseTrainer):
             features['particle_type'] = torch.tensor(features['particle_type']).to(self.device)
             labels = torch.tensor(labels).to(self.device)
             position = features["position"]
+
             # add noise
-            # TODO: implement noise for position
-            position = add_noise(position)
+            position_with_noise = add_noise(position)
 
             """
             n is the nuber of particles
@@ -90,7 +99,7 @@ class Trainer(BaseTrainer):
             `labels`: Float values tensor of size n x 2. It represents future positions to predict        
             """
 
-            # █████╗ ██████╗ ██████╗ ██╗  ██╗   ██╗    ███╗   ███╗ ██████╗ ██████╗ ███████╗██╗
+            #  █████╗ ██████╗ ██████╗ ██╗  ██╗   ██╗    ███╗   ███╗ ██████╗ ██████╗ ███████╗██╗
             # ██╔══██╗██╔══██╗██╔══██╗██║  ╚██╗ ██╔╝    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝██║
             # ███████║██████╔╝██████╔╝██║   ╚████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗  ██║
             # ██╔══██║██╔═══╝ ██╔═══╝ ██║    ╚██╔╝      ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  ██║
@@ -98,7 +107,7 @@ class Trainer(BaseTrainer):
             # ╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═╝       ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝
 
             # Create graph with features
-            data = self.encoder(position)
+            data = self.encoder(position_with_noise)
             # Process graph
             data = self.proc(data)
             # print("Processed Data: ", data)
@@ -112,7 +121,7 @@ class Trainer(BaseTrainer):
             # ██║   ██║██████╔╝██║  ██║███████║   ██║   █████╗
             # ██║   ██║██╔═══╝ ██║  ██║██╔══██║   ██║   ██╔══╝
             # ╚██████╔╝██║     ██████╔╝██║  ██║   ██║   ███████╗
-            # ╚═════╝ ╚═╝     ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝
+            #  ╚═════╝ ╚═╝     ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
             # reset gradients
             for opt in self.optimizers:
@@ -125,11 +134,21 @@ class Trainer(BaseTrainer):
             for opt in self.optimizers:
                 opt.step()
             loss_logged = loss.item()
+
+            nomove_loss = benchmark_nomove(position_with_noise, labels)
+            noacc_loss = benchmark_noacc(position_with_noise, labels)
+            nojerk_loss = benchmark_nojerk(position_with_noise, labels)
+
             self.loss_list.append(loss_logged)
             self.mean_loss += loss_logged
+            self.mean_loss_nomove += nomove_loss
+            self.mean_loss_noacc += noacc_loss
+            self.mean_loss_nojerk += nojerk_loss
             print("Loss is :", loss_logged)
             if self.idx % self.interval_tensorboard == 0:
                 self.report(self.idx)
+            if self.idx % 500 == 0:
+                self.save_models(self.idx)
 
 
     def save_models(self, i):
@@ -140,7 +159,13 @@ class Trainer(BaseTrainer):
     def report(self, i):
         self.loss_list = []
         super().report(i)
+        self.writer.add_scalar("loss_plot/nomove", self.mean_loss_nomove / self.interval_tensorboard, i)
+        self.writer.add_scalar("loss_plot/noacc", self.mean_loss_noacc / self.interval_tensorboard, i)
+        self.writer.add_scalar("loss_plot/nojerk", self.mean_loss_nojerk / self.interval_tensorboard, i)
         self.mean_loss = 0
+        self.mean_loss_nomove = 0
+        self.mean_loss_noacc = 0
+        self.mean_loss_nojerk = 0
 
 
 
@@ -149,9 +174,11 @@ class Trainer(BaseTrainer):
 if __name__ == "__main__":
 
     hyperparams = {
-        "lr": 0.01,
+        "lr": 0.001,
         "n_epochs": 20,
-        "interval_tensorboard": 3
+        "interval_tensorboard": 3,
+        "n_features": 128, #  128
+        "M": 5 # 10
     }
     device = torch.device("cpu")
 
