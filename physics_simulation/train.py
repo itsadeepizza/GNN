@@ -15,9 +15,11 @@ from benchmark import benchmark_nomove_acc, benchmark_noacc_acc, benchmark_nojer
 import torch
 
 def add_noise(position: torch.Tensor):
-    std = 0.0003
+    std = 0.00015
     noise = torch.randn(position.shape, device=position.device) * std
     return position + noise
+
+
 
 class Trainer(BaseTrainer):
 
@@ -41,7 +43,7 @@ class Trainer(BaseTrainer):
     def init_models(self):
 
         # INITIALISING MODELS
-        self.encoder = Encoder(device=self.device, edge_features_dim=self.n_features)
+        self.encoder = Encoder(device=self.device, edge_features_dim=self.n_features, R=self.R)
         self.proc = Processor(self.n_features, self.n_features, self.n_features, self.n_features, M=self.M, device=self.device)
         self.decoder = Decoder(node_features_dim=self.n_features).to(self.device)
 
@@ -88,7 +90,8 @@ class Trainer(BaseTrainer):
             position = features["position"]
 
             # add noise
-            position_with_noise = add_noise(position)
+            # position_with_noise = add_noise(position)
+            position_with_noise = position
 
             """
             n is the nuber of particles
@@ -177,7 +180,8 @@ if __name__ == "__main__":
         "n_epochs": 20,
         "interval_tensorboard": 3,
         "n_features": 128, #  128
-        "M": 5 # 10
+        "M": 5, # 10
+        "R": 0.015 #0.015
     }
     device = torch.device("cpu")
 

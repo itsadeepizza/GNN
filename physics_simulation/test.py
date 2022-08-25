@@ -67,7 +67,8 @@ def roll_position(gnn_position, labels_est):
     return torch.cat((rolled_position, labels_est.unsqueeze(1)), dim=1)
 if __name__ == "__main__":
     gnn_position = None
-    model = loadmodel("runs/fit/20220819-003931/models", 17000)
+
+    model = loadmodel("runs/fit/20220825-221121/models", 500)
     test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False)
     for features, labels in test_ds:
         step += 1

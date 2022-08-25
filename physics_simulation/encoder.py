@@ -12,14 +12,14 @@ class Encoder(nn.Module):
     x.shape == Nx6x2
     v.shape == N x 128
     """
-    def __init__(self, device, c=5, edge_features_dim=128, node_features_dim=128):
+    def __init__(self, device, c=5, edge_features_dim=128, node_features_dim=128, R=0.015):
         super().__init__() # from python 3.7
         self.device = device
         self.l1 = nn.Linear(2 * (c + 1), 32, device=device)
         self.l2 = nn.Linear(32, 64, device=device)
         self.l3 = nn.Linear(64, node_features_dim, device=device)
 
-        self.r = 2
+        self.r = R
 
         # self.e0 = torch.nn.Parameter(torch.rand(edge_features_dim), requires_grad=True).to(device)
         self.register_parameter(name='e0', param=torch.nn.Parameter(torch.rand(edge_features_dim, device=device)))
