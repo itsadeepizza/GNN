@@ -18,6 +18,21 @@ def integrator(position, acc):
     # new_position = torch.cat([position[:, 1:, :], last_position], 1)
     return last_position
 
+def get_acc(position, last_position):
+    """
+    Calculate ground truth acceleration using current  and next position
+    position_i = (p_i ^ t_{k - C}, , ..., p_i ^ t_{k-1}, p_i ^ t_k)
+    labels = p_i ^ t_{k+1}
+
+    return acc =  p_i ^ tk''
+
+    """
+    second_last_position = position[:, -1, :]
+    last_speed = last_position - second_last_position
+    second_last_speed = second_last_position - position[:, -2, :]
+    acc = last_speed - second_last_speed
+    return acc
+
 
 if __name__ == "__main__":
     N = 2

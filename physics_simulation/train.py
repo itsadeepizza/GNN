@@ -7,11 +7,11 @@ import torch
 from processor import Processor
 from decoder import Decoder
 from encoder import Encoder
-from euler_integrator import integrator
+from euler_integrator import integrator, get_acc
 from base_trainer import BaseTrainer
 from loader import prepare_data_from_tfds
 import numpy as np
-from benchmark import benchmark_nomove, benchmark_noacc, benchmark_nojerk
+from benchmark import benchmark_nomove_acc, benchmark_noacc_acc, benchmark_nojerk_acc
 import torch
 
 def add_noise(position: torch.Tensor):
@@ -112,8 +112,8 @@ class Trainer(BaseTrainer):
             data = self.proc(data)
             # print("Processed Data: ", data)
             # extract acceleration using decoder + euler integrator
-            acc = self.decoder(data)
-            labels_est = integrator(position, acc)
+            acc_pred = self.decoder(data)
+            # labels_est = integrator(position, acc)
             # print("Acceleration:", acc)
 
             # ██╗   ██╗██████╗ ██████╗  █████╗ ████████╗███████╗
@@ -123,11 +123,13 @@ class Trainer(BaseTrainer):
             # ╚██████╔╝██║     ██████╔╝██║  ██║   ██║   ███████╗
             #  ╚═════╝ ╚═╝     ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
+            # Ground truth acceleration
+            acc = get_acc(position, labels)
             # reset gradients
             for opt in self.optimizers:
                 opt.zero_grad()
             # calculate loss
-            loss = torch.abs(labels_est - labels).sum()
+            loss = nn.MSELoss()(acc_pred, acc)
             # backpropagation
             loss.backward()
             # update parameters
@@ -135,9 +137,9 @@ class Trainer(BaseTrainer):
                 opt.step()
             loss_logged = loss.item()
 
-            nomove_loss = benchmark_nomove(position_with_noise, labels)
-            noacc_loss = benchmark_noacc(position_with_noise, labels)
-            nojerk_loss = benchmark_nojerk(position_with_noise, labels)
+            nomove_loss = benchmark_nomove_acc(position_with_noise, acc)
+            noacc_loss = benchmark_noacc_acc(position_with_noise, acc)
+            nojerk_loss = benchmark_nojerk_acc(position_with_noise, acc)
 
             self.loss_list.append(loss_logged)
             self.mean_loss += loss_logged
@@ -166,9 +168,6 @@ class Trainer(BaseTrainer):
         self.mean_loss_nomove = 0
         self.mean_loss_noacc = 0
         self.mean_loss_nojerk = 0
-
-
-
 
 
 if __name__ == "__main__":
