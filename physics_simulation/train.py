@@ -13,6 +13,8 @@ from loader import prepare_data_from_tfds
 import numpy as np
 from benchmark import benchmark_nomove_acc, benchmark_noacc_acc, benchmark_nojerk_acc
 import torch
+from torch.optim.lr_scheduler import StepLR
+
 
 def add_noise(position: torch.Tensor):
     std = 0.00015
@@ -55,6 +57,7 @@ class Trainer(BaseTrainer):
         self.opt_decoder = optim.Adam(self.decoder.parameters(), lr=self.lr)
 
         self.optimizers = [self.opt_encoder, self.opt_proc, self.opt_decoder]
+        self.schedulers = [StepLR(optimizer, step_size=1_000, gamma=0.8) for optimizer in self.optimizers]
 
 
 
@@ -155,6 +158,7 @@ class Trainer(BaseTrainer):
             if self.idx % 500 == 0:
                 self.save_models(self.idx)
 
+            [schedule.step() for schedule in self.schedulers]
 
     def save_models(self, i):
         for model in self.models:
@@ -176,7 +180,7 @@ class Trainer(BaseTrainer):
 if __name__ == "__main__":
 
     hyperparams = {
-        "lr": 0.001,
+        "lr": 1,
         "n_epochs": 20,
         "interval_tensorboard": 3,
         "n_features": 128, #  128

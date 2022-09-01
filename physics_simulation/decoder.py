@@ -23,9 +23,9 @@ class Decoder(nn.Module):
         # Linearize x vector Nx6x2 -> Nx12
         x = data.x
         x = self.l1(x)
-        x = torch.relu(x)
+        x = torch.sigmoid(x)
         x = self.l2(x)
-        x = torch.relu(x)
+        x = torch.sigmoid(x)
         x = self.l3(x)
         # x = torch.relu(x)
         return x

@@ -68,7 +68,7 @@ def roll_position(gnn_position, labels_est):
 if __name__ == "__main__":
     gnn_position = None
 
-    model = loadmodel("runs/fit/20220825-221121/models", 500)
+    model = loadmodel("runs/fit/20220826-080522/models", 1000)
     test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False)
     for features, labels in test_ds:
         step += 1
