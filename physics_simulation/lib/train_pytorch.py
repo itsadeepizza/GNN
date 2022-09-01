@@ -184,7 +184,7 @@ class Decoder(nn.Module):
             mlp_hidden_dim,
     ):
         super(Decoder, self).__init__()
-        self.node_fn = build_mlp(node_in, [mlp_hidden_dim for _ in range(mlp_num_layers)], node_out)
+        self.node_fn = build_mlp(node_in, [mlp_hidden_dim] * len(mlp_num_layers), node_out)
 
     def forward(self, x):
         # x: (E, node_in)
@@ -328,7 +328,7 @@ class Simulator(nn.Module):
 
         # Specify examples id for particles/points
         batch_ids = torch.cat(
-            [torch.LongTensor([i for _ in range(n)]) for i, n in enumerate(n_particles_per_example)]).to(self._device)
+            [torch.LongTensor([i] * n) for i, n in enumerate(n_particles_per_example)]).to(self._device)
         # radius = radius + 0.00001 # radius_graph takes r < radius not r <= radius
         edge_index = radius_graph(node_features, r=radius, batch=batch_ids, loop=add_self_edges)  # (2, n_edges)
         receivers = edge_index[0, :]

@@ -28,8 +28,8 @@ class Trainer(BaseTrainer):
     def __init__(self, hyperparams: dict, device=None, seed=None):
         super().__init__(hyperparams, device=device, seed=seed)
 
-        self.init_models()
         self.init_dataloader()
+        self.init_models()
         self.init_logger()
 
         self.mean_loss_nomove = 0
@@ -40,14 +40,28 @@ class Trainer(BaseTrainer):
         self.idx = 0
 
     def init_dataloader(self):
-        self.ds = prepare_data_from_tfds()
+        self.ds = prepare_data_from_tfds(batch_size=1)
+        metadata_path = "dataset/water_drop/metadata.json"
+        with open(metadata_path, 'rt') as f:
+            metadata = json.loads(f.read())
+        # num_steps = metadata['sequence_length'] - INPUT_SEQUENCE_LENGTH
+        self.normalization_stats = {
+            'acceleration': {
+                'mean': torch.FloatTensor(metadata['acc_mean']).to(device),
+                'std': torch.FloatTensor(metadata['acc_std']).to(device),
+                },
+            'velocity': {
+                'mean': torch.FloatTensor(metadata['vel_mean']).to(device),
+                'std': torch.FloatTensor(metadata['vel_std']).to(device),
+                },
+            }
 
     def init_models(self):
 
         # INITIALISING MODELS
-        self.encoder = Encoder(device=self.device, edge_features_dim=self.n_features, R=self.R)
+        self.encoder = Encoder(self.normalization_stats, device=self.device, edge_features_dim=self.n_features, R=self.R)
         self.proc = Processor(self.n_features, self.n_features, self.n_features, self.n_features, M=self.M, device=self.device)
-        self.decoder = Decoder(node_features_dim=self.n_features).to(self.device)
+        self.decoder = Decoder(self.normalization_stats, node_features_dim=self.n_features).to(self.device)
 
         self.models = [self.encoder, self.proc, self.decoder]
 
@@ -97,7 +111,7 @@ class Trainer(BaseTrainer):
             position_with_noise = position
 
             """
-            n is the nuber of particles
+            n is the number of particles
             `partycle_type`: Integer values tensor of size n. Each value represent the material of the ith particle
             `position`: Float values tensor of size n x 6 x 2. It represents the last six positions (x, y) of the particles
             `n_particles_per_example`: Integer values Tensor of size 2 = [n1, n2] with n1 + n2 = n ????????? 
@@ -180,7 +194,7 @@ class Trainer(BaseTrainer):
 if __name__ == "__main__":
 
     hyperparams = {
-        "lr": 1,
+        "lr": 0.0001,
         "n_epochs": 20,
         "interval_tensorboard": 3,
         "n_features": 128, #  128

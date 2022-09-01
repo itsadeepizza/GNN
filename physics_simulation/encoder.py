@@ -12,7 +12,7 @@ class Encoder(nn.Module):
     x.shape == Nx6x2
     v.shape == N x 128
     """
-    def __init__(self, device, c=5, edge_features_dim=128, node_features_dim=128, R=0.015):
+    def __init__(self, normalization_stats, device, c=5, edge_features_dim=128, node_features_dim=128, R=0.015):
         super().__init__() # from python 3.7
         self.device = device
         self.l1 = nn.Linear(2 * (c + 1), 32, device=device)
@@ -20,6 +20,8 @@ class Encoder(nn.Module):
         self.l3 = nn.Linear(64, node_features_dim, device=device)
 
         self.r = R
+
+        self.normalization_stats = normalization_stats
 
         # self.e0 = torch.nn.Parameter(torch.rand(edge_features_dim), requires_grad=True).to(device)
         self.register_parameter(name='e0', param=torch.nn.Parameter(torch.rand(edge_features_dim, device=device)))
@@ -48,8 +50,7 @@ class Encoder(nn.Module):
         data = Data(x=v, edge_index=edge_index, edge_attr=edge_attr)
         return data
 
-    @staticmethod
-    def position2x(position):
+    def position2x(self, position):
         """
         Convert position vectors to x
         position_i = (p_i^tk-C, , ..., p_i^tk-1, p_i^tk)
@@ -57,8 +58,9 @@ class Encoder(nn.Module):
         speed are calculated using difference i.e. p'_i^tk = p_i^tk - p_i^tk-1
         """
         speeds = position[:, 1:, :] - position[:, :-1,:]
+        normalized_speeds = (speeds - self.normalization_stats['velocity']['mean']) / self.normalization_stats['velocity']['std']
         last_position = position[:, -1, :].unsqueeze(1)
-        x = torch.cat([speeds, last_position], 1)
+        x = torch.cat([normalized_speeds, last_position], 1)
         return x
 
     @staticmethod
