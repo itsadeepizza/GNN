@@ -25,7 +25,7 @@ def add_noise(position: torch.Tensor):
 
 class Trainer(BaseTrainer):
 
-    def __init__(self, hyperparams: dict, device=None, seed=None):
+    def __init__(self, hyperparams: dict, device=None, seed=None, load_path=None, load_idx=0):
         super().__init__(hyperparams, device=device, seed=seed)
 
         self.init_dataloader()
@@ -38,6 +38,8 @@ class Trainer(BaseTrainer):
 
         self.loss_list = []
         self.idx = 0
+        self.load_path = load_path
+        self.load_idx  = load_idx
 
     def init_dataloader(self):
         self.ds = prepare_data_from_tfds(batch_size=1)
@@ -65,13 +67,28 @@ class Trainer(BaseTrainer):
 
         self.models = [self.encoder, self.proc, self.decoder]
 
+        if self.load_path is not None:
+            load_path = self.load_path
+            load_idx = self.load_idx
+            encoder_w = torch.load(os.path.join(load_path, f"Encoder/encoder_{load_idx}.pth"))
+            self.encoder.load_state_dict(encoder_w)
+            # self.encoder.eval()
+
+            processor_w = torch.load(os.path.join(load_path, f"Processor/processor_{load_idx}.pth"))
+            self.proc.load_state_dict(processor_w)
+            # self.processor.eval()
+
+            decoder_w = torch.load(os.path.join(load_path, f"Decoder/decoder_{load_idx}.pth"))
+            self.decoder.load_state_dict(decoder_w)
+            # self.decoder.eval()
+
         # OPTIMIZER
         self.opt_encoder = optim.Adam(self.encoder.parameters(), lr=self.lr)
         self.opt_proc = optim.Adam(self.proc.all_parameters(), lr=self.lr)
         self.opt_decoder = optim.Adam(self.decoder.parameters(), lr=self.lr)
 
         self.optimizers = [self.opt_encoder, self.opt_proc, self.opt_decoder]
-        self.schedulers = [StepLR(optimizer, step_size=1_000, gamma=0.8) for optimizer in self.optimizers]
+        self.schedulers = [StepLR(optimizer, step_size=int(5e6), gamma=0.1) for optimizer in self.optimizers]
 
 
 
@@ -194,12 +211,14 @@ class Trainer(BaseTrainer):
 if __name__ == "__main__":
 
     hyperparams = {
-        "lr": 0.0001,
+        "lr": 1e-4,
         "n_epochs": 20,
         "interval_tensorboard": 3,
         "n_features": 128, #  128
         "M": 5, # 10
-        "R": 0.015 #0.015
+        "R": 0.015, #0.015
+        "load_path": "runs/fit/20220902-000721/models",
+        "load_idx": 5000
     }
     device = torch.device("cpu")
 

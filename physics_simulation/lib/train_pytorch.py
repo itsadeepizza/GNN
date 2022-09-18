@@ -7,14 +7,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import MessagePassing, radius_graph
-
+from torch.utils.tensorboard import SummaryWriter
 # from torch.utils.tensorboard import SummaryWriter
 
 os.makedirs('train_log', exist_ok=True)
 os.makedirs('rollouts', exist_ok=True)
 
-test_path = "dataset/water_drop/test.tfrecord"
-metadata_path =  "dataset/water_drop/metadata.json"
+test_path = "../dataset/water_drop/test.tfrecord"
+metadata_path =  "../dataset/water_drop/metadata.json"
 
 
 INPUT_SEQUENCE_LENGTH = 6
@@ -95,7 +95,7 @@ class Encoder(nn.Module):
             mlp_hidden_dim,
     ):
         super(Encoder, self).__init__()
-        self.node_fn = nn.Sequential(*[build_mlp(node_in, [mlp_hidden_dim for _ in range(mlp_num_layers)], node_out),
+        self.node_fn = nn.Sequential(*[-build_mlp(node_in, [mlp_hidden_dim for _ in range(mlp_num_layers)], node_out),
                                        nn.LayerNorm(node_out)])
         self.edge_fn = nn.Sequential(*[build_mlp(edge_in, [mlp_hidden_dim for _ in range(mlp_num_layers)], edge_out),
                                        nn.LayerNorm(edge_out)])
@@ -119,10 +119,10 @@ class InteractionNetwork(MessagePassing):
     ):
         super(InteractionNetwork, self).__init__(aggr='add')
         self.node_fn = nn.Sequential(
-            *[build_mlp(node_in + edge_out, [mlp_hidden_dim for _ in range(mlp_num_layers)], node_out),
+            *[build_mlp(node_in + edge_out, [mlp_hidden_dim] * mlp_num_layers, node_out),
               nn.LayerNorm(node_out)])
         self.edge_fn = nn.Sequential(
-            *[build_mlp(node_in + node_in + edge_in, [mlp_hidden_dim for _ in range(mlp_num_layers)], edge_out),
+            *[build_mlp(node_in + node_in + edge_in, [mlp_hidden_dim] * mlp_num_layers, edge_out),
               nn.LayerNorm(edge_out)])
 
     def forward(self, x, edge_index, e_features):
@@ -184,7 +184,7 @@ class Decoder(nn.Module):
             mlp_hidden_dim,
     ):
         super(Decoder, self).__init__()
-        self.node_fn = build_mlp(node_in, [mlp_hidden_dim] * len(mlp_num_layers), node_out)
+        self.node_fn = build_mlp(node_in, [mlp_hidden_dim] * mlp_num_layers, node_out)
 
     def forward(self, x):
         # x: (E, node_in)
@@ -394,7 +394,7 @@ def prepare_data_from_tfds(data_path='data/train.tfrecord', is_rollout=False, ba
     import tensorflow_datasets as tfds
     from lib import reading_utils
     import tree
-    from tfrecord.torch.dataset import TFRecordDataset
+    # from tfrecord.torch.dataset import TFRecordDataset
     def prepare_inputs(tensor_dict):
         pos = tensor_dict['position']
         pos = tf.transpose(pos, perm=[1, 0, 2])
@@ -581,7 +581,7 @@ def train(simulator):
 
 
 def infer(simulator):
-    test_path = "dataset/water_drop/test.tfrecord"
+    test_path = "../dataset/water_drop/test.tfrecord"
     ds = prepare_data_from_tfds(data_path=test_path, is_rollout=True)
     eval_rollout(ds, simulator, num_steps=num_steps, save_results=True, device=device)
 

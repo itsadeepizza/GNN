@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import torch
 import os
 import datetime
+import json
 
 # model is represented by the (encoder, processor, decoder) tuple
 
@@ -19,10 +20,24 @@ os.makedirs(frame_dir, exist_ok=True)
 step = 0
 
 def loadmodel(path, idx):
-    encoder = Encoder(device=device, edge_features_dim=n_features)
+    metadata_path = "dataset/water_drop/metadata.json"
+    with open(metadata_path, 'rt') as f:
+        metadata = json.loads(f.read())
+    normalization_stats = {
+        'acceleration': {
+            'mean': torch.FloatTensor(metadata['acc_mean']).to(device),
+            'std': torch.FloatTensor(metadata['acc_std']).to(device),
+            },
+        'velocity': {
+            'mean': torch.FloatTensor(metadata['vel_mean']).to(device),
+            'std': torch.FloatTensor(metadata['vel_std']).to(device),
+            },
+        }
+
+    encoder = Encoder(normalization_stats, device=device, edge_features_dim=n_features)
     processor = Processor(n_features, n_features, n_features, n_features, M=M,
                           device=device)
-    decoder = Decoder(node_features_dim=n_features).to(device)
+    decoder = Decoder(normalization_stats, node_features_dim=n_features).to(device)
 
     encoder_w = torch.load(os.path.join(path,f"Encoder/encoder_{idx}.pth"))
     encoder.load_state_dict(encoder_w)
@@ -68,7 +83,7 @@ def roll_position(gnn_position, labels_est):
 if __name__ == "__main__":
     gnn_position = None
 
-    model = loadmodel("runs/fit/20220901-224358/models", 5000)
+    model = loadmodel("runs/fit/20220902-000721/models", 5000)
     test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
 
     for features, labels in test_ds:
