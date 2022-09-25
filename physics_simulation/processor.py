@@ -12,7 +12,7 @@ from physics_simulation.new_GATconv import New_GATConv
 
 # A stack of M GNs, each GN has 2 hidden layers + LayerNorm at the end, size is always 128 for all layers
 
-class Processor(torch.nn.Module):
+class Processor(torch.nn.Sequential):
     def __init__(
             self,
             node_in,
@@ -22,17 +22,17 @@ class Processor(torch.nn.Module):
             M,
             device):
         # Init parent
-        super().__init__()
         self.M = M
         self.GNs = [GN(node_in, node_out, edge_in, edge_out, device=device) for i in range(self.M)]
+        super().__init__(*self.GNs)
 
     def all_parameters(self):
         return [param for GN in self.GNs for param in list(GN.parameters())]
 
-    def forward(self, data: Data):
-        for i in range(self.M):
-            data = self.GNs[i](data)
-        return data
+    # def forward(self, data: Data):
+    #     for i in range(self.M):
+    #         data = self.GNs[i](data)
+    #     return data
 
 def compute_norm(edge_index, x):
     # Step 3: Compute normalization.

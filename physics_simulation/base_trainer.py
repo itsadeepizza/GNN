@@ -8,7 +8,7 @@ import time
 # import inspect
 # import tabulate
 import numpy.random
-
+import numpy as np
 
 class BaseTrainer():
 
@@ -31,10 +31,7 @@ class BaseTrainer():
         for key, value in self.hparams.items():
             setattr(self, key, value)
 
-
         self.init_logger()
-
-
 
     def do_each_n(self, i, n):
         """Execute the event each n moves"""
@@ -89,3 +86,66 @@ class BaseTrainer():
         if not os.path.exists(path):
             os.mkdir(path)
         torch.save(model.state_dict(), f"{path}/{name}_{i}.pth")
+
+    @staticmethod
+    def plot_to_tensorboard(fig):
+        """
+        Takes a matplotlib figure handle and converts it using
+        canvas and string-casts to a numpy array that can be
+        visualized in TensorBoard using the add_image function
+
+        Parameters:
+            writer (tensorboard.SummaryWriter): TensorBoard SummaryWriter instance.
+            fig (matplotlib.pyplot.fig): Matplotlib figure handle.
+            step (int): counter usually specifying steps/epochs/time.
+        """
+
+
+        # Draw figure on canvas
+        fig.canvas.draw()
+
+        # Convert the figure to numpy array, read the pixel values and reshape the array
+        img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+        img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+        # Normalize into 0-1 range for TensorBoard(X). Swap axes for newer versions where API expects colors in first dim
+        img = img / 255.0
+        img = np.swapaxes(img, 0, 2) # if your TensorFlow + TensorBoard version are >= 1.8
+        img = np.swapaxes(img, 1, 2) # elsewhere image is inverted
+        return img
+
+
+    def plot_small_module(self, module: torch.nn.Module):
+        """Plot weights for small modules"""
+        import math
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import io
+
+        def normalize(l):
+            """extract detached weights from layer"""
+            w = l.weight.detach().to("cpu").abs()
+            if w.dim() == 1:
+                w = w.unsqueeze(1)
+            return w
+
+        layers = [l for l in module.named_modules()][1:]  # first one is the module itself
+        # parameters = [x[0] for x in self.encoder.named_parameters()] # for bias and ALL parameters in the module
+        n_layers = len(layers)
+        n_rows = math.ceil(n_layers / 2)
+        fig, ax = plt.subplots(n_rows, 2, figsize=(14, n_rows * 7))
+        for i, (name, layer) in enumerate(layers):
+            ax_ = ax[i // 2][i % 2]
+            ax_.imshow(normalize(layer), cmap="gray", vmin=0, vmax=0.3)
+            ax_.set_title(name, fontsize=20)
+        fig.suptitle(module.__class__.__name__, fontsize=26)
+        # save the image in memory buffer
+        # buf = io.BytesIO()
+        # fig.savefig(buf, format='png')
+        # buf.seek(0)
+        # return buf
+        fig.canvas.draw()
+        img = self.plot_to_tensorboard(fig)
+        plt.close(fig)
+        return img
+

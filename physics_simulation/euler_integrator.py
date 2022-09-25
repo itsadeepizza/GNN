@@ -18,7 +18,7 @@ def integrator(position, acc):
     # new_position = torch.cat([position[:, 1:, :], last_position], 1)
     return last_position
 
-def get_acc(position, last_position):
+def get_acc(position, last_position, normalization_stats=None):
     """
     Calculate ground truth acceleration using current  and next position
     position_i = (p_i ^ t_{k - C}, , ..., p_i ^ t_{k-1}, p_i ^ t_k)
@@ -27,11 +27,21 @@ def get_acc(position, last_position):
     return acc =  p_i ^ tk''
 
     """
+
+    def normalize(acceleration, normalization_stats):
+        if normalization_stats is None:
+            return acceleration
+        return (acceleration - normalization_stats['acceleration']['mean'])/ \
+               normalization_stats['acceleration']['std']
+
+
     second_last_position = position[:, -1, :]
     last_speed = last_position - second_last_position
     second_last_speed = second_last_position - position[:, -2, :]
     acc = last_speed - second_last_speed
-    return acc
+    if normalization_stats==None:
+        return acc
+    return normalize(acc, normalization_stats)
 
 
 if __name__ == "__main__":

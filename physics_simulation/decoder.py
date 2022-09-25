@@ -20,7 +20,7 @@ class Decoder(nn.Module):
         # I need 2 dimensional output for x,y coordinates of the acceleration
         self.normalization_stats = normalization_stats
 
-    def forward(self, data: Data):
+    def forward(self, data: Data, denormalize=False):
         # Linearize x vector Nx6x2 -> Nx12
         x = data.x
         x = self.l1(x)
@@ -28,7 +28,8 @@ class Decoder(nn.Module):
         x = self.l2(x)
         x = torch.sigmoid(x)
         x = self.l3(x)
-        x = self.denormalize(x)
+        if denormalize:
+            x = self.denormalize(x)
 
         # x = torch.relu(x)
         return x

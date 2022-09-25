@@ -18,25 +18,25 @@ metadata_path =  "../dataset/water_drop/metadata.json"
 
 
 INPUT_SEQUENCE_LENGTH = 6
-batch_size = 2
-noise_std = 6.7e-4
+batch_size = 1 #2
+noise_std = 6.7e-4 #6.7e-4
 training_steps = int(2e7)
 log_steps = 5
 eval_steps = 20
 save_steps = 100
 model_path = None  # 'model425000.pth'
-device = 'cuda'
+device = 'cpu'
 with open(metadata_path, 'rt') as f:
     metadata = json.loads(f.read())
 num_steps = metadata['sequence_length'] - INPUT_SEQUENCE_LENGTH
 normalization_stats = {
     'acceleration': {
         'mean': torch.FloatTensor(metadata['acc_mean']).to(device),
-        'std': torch.sqrt(torch.FloatTensor(metadata['acc_std']) ** 2 + noise_std ** 2).to(device),
+        'std': torch.sqrt(torch.FloatTensor(metadata['acc_std']) ** 2 + 0 ** 2).to(device),
     },
     'velocity': {
         'mean': torch.FloatTensor(metadata['vel_mean']).to(device),
-        'std': torch.sqrt(torch.FloatTensor(metadata['vel_std']) ** 2 + noise_std ** 2).to(device),
+        'std': torch.sqrt(torch.FloatTensor(metadata['vel_std']) ** 2 + 0 ** 2).to(device),
     },
 }
 
@@ -79,7 +79,7 @@ def get_random_walk_noise_for_position_sequence(position_sequence, noise_std_las
 
 
 def _read_metadata(data_path):
-    metadata_path = "dataset/water_drop/metadata.json"
+    metadata_path = "../dataset/water_drop/metadata.json"
     with open(os.path.join(data_path, metadata_path), 'rt') as fp:
         return json.loads(fp.read())
 
@@ -95,7 +95,7 @@ class Encoder(nn.Module):
             mlp_hidden_dim,
     ):
         super(Encoder, self).__init__()
-        self.node_fn = nn.Sequential(*[-build_mlp(node_in, [mlp_hidden_dim for _ in range(mlp_num_layers)], node_out),
+        self.node_fn = nn.Sequential(*[build_mlp(node_in, [mlp_hidden_dim for _ in range(mlp_num_layers)], node_out),
                                        nn.LayerNorm(node_out)])
         self.edge_fn = nn.Sequential(*[build_mlp(edge_in, [mlp_hidden_dim for _ in range(mlp_num_layers)], edge_out),
                                        nn.LayerNorm(edge_out)])
@@ -388,11 +388,11 @@ class Simulator(nn.Module):
         self.load_state_dict(torch.load(path))
 
 
-def prepare_data_from_tfds(data_path='data/train.tfrecord', is_rollout=False, batch_size=2):
+def prepare_data_from_tfds(data_path='../dataset/water_drop/train.tfrecord', is_rollout=False, batch_size=2):
     import functools
     import tensorflow.compat.v1 as tf
     import tensorflow_datasets as tfds
-    from lib import reading_utils
+    import reading_utils
     import tree
     # from tfrecord.torch.dataset import TFRecordDataset
     def prepare_inputs(tensor_dict):
@@ -428,7 +428,7 @@ def prepare_data_from_tfds(data_path='data/train.tfrecord', is_rollout=False, ba
         out_dict['is_trajectory'] = tf.constant([True], tf.bool)
         return out_dict, target_position
 
-    metadata = _read_metadata('data/')
+    metadata = _read_metadata('')
     ds = tf.data.TFRecordDataset([data_path])
     ds = ds.map(functools.partial(reading_utils.parse_serialized_simulation_example, metadata=metadata))
     if is_rollout:
@@ -545,19 +545,22 @@ def train(simulator):
             )
             loss = (pred - target) ** 2
             loss = loss.sum(dim=-1)
+            loss_noacc = (target.detach() ** 2).mean() * 2
             num_non_kinematic = non_kinematic_mask.sum()
 
             loss = torch.where(non_kinematic_mask.bool(), loss, torch.zeros_like(loss))
             loss = loss.sum() / num_non_kinematic
 
-            if step % log_steps == 0:
-                writer.add_scalar("training_loss", loss, step)
-                writer.add_scalar("lr", lr_new, step)
-
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
+            loss = loss.item()
+            if step % log_steps == 0:
+                writer.add_scalar("training_loss", loss, step)
+                writer.add_scalar("benchmark_no_acc", loss_noacc, step)
+                writer.add_scalar("ratio", loss / loss_noacc, step)
+                writer.add_scalar("lr", lr_new, step)
             lr_new = lr_init * (lr_decay ** (step / lr_decay_steps))
             for g in optimizer.param_groups:
                 g['lr'] = lr_new

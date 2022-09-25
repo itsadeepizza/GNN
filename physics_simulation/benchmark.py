@@ -27,20 +27,20 @@ def benchmark_nojerk(position_with_noise, labels):
 
 
 
-def benchmark_nomove_acc(position_with_noise, acc):
+def benchmark_nomove_acc(position_with_noise, acc, stats_acc):
     "simulate not moving particles and calculate the loss"
     last_velocity = position_with_noise[:, -1, :].detach() - position_with_noise[:, -2, :].detach()
     stop_acc = - last_velocity
-    return nn.MSELoss()(stop_acc, acc)
+    return nn.MSELoss()(stop_acc / stats_acc['std'], acc / stats_acc['std'])
 
-def benchmark_noacc_acc(position_with_noise, acc):
+def benchmark_noacc_acc(position_with_noise, acc, stats_acc):
     "simulate same speed particles and calculate the loss"
     zero_acc = torch.zeros_like(acc, requires_grad=False)
-    return nn.MSELoss()(zero_acc, acc)
+    return nn.MSELoss()(zero_acc / stats_acc['std'], acc / stats_acc['std'])
 
-def benchmark_nojerk_acc(position_with_noise, acc):
+def benchmark_nojerk_acc(position_with_noise, acc, stats_acc):
     "simulate same acceleration particles and calculate the loss"
     second_last_velocity = position_with_noise[:, -1, :].detach() - position_with_noise[:, -2, :].detach()
     third_last_velocity = position_with_noise[:, -2, :].detach() - position_with_noise[:, -3, :].detach()
     last_acc = second_last_velocity - third_last_velocity
-    return nn.MSELoss()(last_acc, acc)
+    return nn.MSELoss()(last_acc / stats_acc['std'], acc / stats_acc['std'])
