@@ -1,4 +1,4 @@
-from loader import prepare_data_from_tfds
+from loader import prepare_data_from_tfds, prepare_data_from_tfds_test
 from processor import Processor
 from decoder import Decoder
 from encoder import Encoder
@@ -13,7 +13,7 @@ import json
 
 device = torch.device("cpu")
 n_features = 128 #  128
-M = 5 # 10
+M = 10 # 10
 now_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 frame_dir = "frame/" + now_str
 os.makedirs(frame_dir, exist_ok=True)
@@ -36,23 +36,22 @@ bounds = torch.tensor(metadata["bounds"], device=device)
 
 def loadmodel(path, idx):
 
-
-
-
     encoder = Encoder(normalization_stats, bounds, device=device, edge_features_dim=n_features)
     processor = Processor(n_features, n_features, n_features, n_features, M=M,
                           device=device)
+
+
     decoder = Decoder(normalization_stats, node_features_dim=n_features).to(device)
 
-    encoder_w = torch.load(os.path.join(path,f"Encoder/encoder_{idx}.pth"))
+    encoder_w = torch.load(os.path.join(path,f"Encoder/Encoder_{idx}.pth"))
     encoder.load_state_dict(encoder_w)
     encoder.eval()
 
-    processor_w = torch.load(os.path.join(path,f"Processor/processor_{idx}.pth"))
+    processor_w = torch.load(os.path.join(path,f"Processor/Processor_{idx}.pth"))
     processor.load_state_dict(processor_w)
     processor.eval()
 
-    decoder_w = torch.load(os.path.join(path,f"Decoder/decoder_{idx}.pth"))
+    decoder_w = torch.load(os.path.join(path,f"Decoder/Decoder_{idx}.pth"))
     decoder.load_state_dict(decoder_w)
     decoder.eval()
 
@@ -79,10 +78,10 @@ def plot_particles(labels, labels_est):
     ax[1].scatter(x=labels_est[:, 0].numpy(), y=labels_est[:, 1].numpy(), color='r', s=2)
     ax[0].set_title("Ground trouth")
     ax[1].set_title("Simulation")
-    ax[0].set_xlim([bounds[0][0], bounds[0][1]*2])
-    ax[1].set_xlim([bounds[0][0], bounds[0][1]*2])
-    ax[0].set_ylim([bounds[1][0], bounds[1][1]*2])
-    ax[1].set_ylim([bounds[1][0], bounds[1][1]*2])
+    ax[0].set_xlim([bounds[0][0] - 0.1, bounds[0][1] + 0.1])
+    ax[1].set_xlim([bounds[0][0] - 0.1, bounds[0][1] + 0.1])
+    ax[0].set_ylim([bounds[1][0] - 0.1, bounds[1][1] + 0.1])
+    ax[1].set_ylim([bounds[1][0] - 0.1, bounds[1][1] + 0.1])
     fig.savefig(os.path.join(frame_dir, f"{step:04d}"))
     fig.show()
 
@@ -99,8 +98,10 @@ def roll_position(gnn_position, labels_est):
 if __name__ == "__main__":
     gnn_position = None
 
-    model = loadmodel("runs/fit/20220925-164036/models", 130000)
-    test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
+    model = loadmodel("runs/fit/20221009-020424/models", 400000)
+    # test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
+    # test_ds = prepare_data_from_tfds_test(data_path='dataset/water_drop/valid.tfrecord', is_rollout=True, shuffle=False, batch_size=1)
+    test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord', shuffle=False, batch_size=1)
 
     for features, labels in test_ds:
         step += 1

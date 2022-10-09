@@ -21,12 +21,17 @@ class Encoder(nn.Module):
         self.l3 = nn.Linear(64, node_features_dim, device=device)
         self.layer_norm = nn.LayerNorm(node_features_dim, device=self.device)
 
+        self.edge_l1 = nn.Linear(7, 32, device=device)
+        self.edge_l2 = nn.Linear(32, 64, device=device)
+        self.edge_l3 = nn.Linear(64, edge_features_dim, device=device)
+        self.edge_layer_norm = nn.LayerNorm(edge_features_dim, device=self.device)
+
         self.r = R
 
         self.normalization_stats = normalization_stats
 
         # A random learnable vector as e0 parameter
-        self.register_parameter(name='e0', param=torch.nn.Parameter(torch.rand(edge_features_dim, device=device)))
+        # self.register_parameter(name='e0', param=torch.nn.Parameter(torch.rand(edge_features_dim, device=device)))
         # self.u0 = torch.nn.Parameter(torch.rand(128))
 
     def forward(self, position) -> Data:
@@ -39,16 +44,31 @@ class Encoder(nn.Module):
         x = torch.relu(x)
         x = self.l3(x)
         x = self.layer_norm(x)
-        # a tensor of size N x 128 defined as N times e0
-        # TODO: Add LayerNorm
+
 
         edge_index = self.get_adjacency_matrix(position, self.r)
         # TODO: Self loops or not self loops ?
         # edge_index, _ = add_self_loops(edge_index, num_nodes=x.size(0))
         # a tensor of size E x 2
-        Ne_ones = torch.ones(edge_index.shape[1], 1, device=self.device)
-        edge_attr = torch.kron(Ne_ones, self.e0)
+        # Ne_ones = torch.ones(edge_index.shape[1], 1, device=self.device)
+        # edge_attr = torch.kron(Ne_ones, self.e0)
         # a tensor of size E x 128
+        delta_pos = position[edge_index[0, :], -1, :] - position[edge_index[1, :], -1, :]
+        dist = torch.sqrt(delta_pos[:, 0]**2 + delta_pos[:, 1]**2).unsqueeze(1)
+        last_speeds = position[:, -1, :] - position[:, -2, :]
+        delta_speeds = (last_speeds[edge_index[0, :], :] - \
+                       last_speeds[edge_index[1, :], :] ) / \
+                            self.normalization_stats['velocity']['std']
+        abs_speeds = torch.sqrt(delta_speeds[:, 0]**2 + delta_speeds[:, 1]**2).unsqueeze(1)
+        relative_motion = (delta_speeds[:, 0] * delta_pos[:, 0] + delta_speeds[:, 1] * delta_pos[:,
+                                                                                   1]).unsqueeze(1) / abs_speeds / dist
+        edge_attr = torch.cat((delta_pos, dist, delta_speeds, abs_speeds, relative_motion), dim=1)
+        edge_attr = self.edge_l1(edge_attr)
+        edge_attr = torch.relu(edge_attr)
+        edge_attr = self.edge_l2(edge_attr)
+        edge_attr = torch.relu(edge_attr)
+        edge_attr = self.edge_l3(edge_attr)
+        edge_attr = self.layer_norm(edge_attr)
 
         data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
         return data

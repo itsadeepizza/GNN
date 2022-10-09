@@ -55,9 +55,11 @@ class BaseTrainer():
         self.summary_dir = self.log_dir + "/summary"
         self.models_dir = self.log_dir + "/models"
         self.test_dir = self.log_dir + "/test"
+        self.img_dir = self.log_dir + "/img"
         os.makedirs(self.log_dir, exist_ok=True)
         # os.mkdir(summary_dir)
         os.makedirs(self.models_dir, exist_ok=True)
+        os.makedirs(self.img_dir, exist_ok=True)
         os.makedirs(self.test_dir, exist_ok=True)
         self.writer = SummaryWriter(self.summary_dir)
         # Custom scalar for overlapping plots
@@ -115,7 +117,7 @@ class BaseTrainer():
         return img
 
 
-    def plot_small_module(self, module: torch.nn.Module):
+    def plot_small_module(self, module: torch.nn.Module, step:int=0):
         """Plot weights for small modules"""
         import math
         import matplotlib.pyplot as plt
@@ -138,13 +140,15 @@ class BaseTrainer():
             ax_ = ax[i // 2][i % 2]
             ax_.imshow(normalize(layer), cmap="gray", vmin=0, vmax=0.3)
             ax_.set_title(name, fontsize=20)
-        fig.suptitle(module.__class__.__name__, fontsize=26)
+        module_name = module.__class__.__name__
+        fig.suptitle(module_name, fontsize=26)
         # save the image in memory buffer
         # buf = io.BytesIO()
         # fig.savefig(buf, format='png')
         # buf.seek(0)
         # return buf
         fig.canvas.draw()
+        fig.savefig(os.path.join(self.img_dir,f"{module_name}_{step:06}.png"))
         img = self.plot_to_tensorboard(fig)
         plt.close(fig)
         return img

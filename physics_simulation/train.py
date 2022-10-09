@@ -16,9 +16,10 @@ import torch
 from torch.optim.lr_scheduler import StepLR
 import matplotlib.pyplot as plt
 
-def add_noise(position: torch.Tensor):
-    std = 0.00015
+def add_noise(position: torch.Tensor, std=0):
+
     noise = torch.randn(position.shape, device=position.device) * std
+    noise[:, -1, :] = 0
     return position + noise
 
 
@@ -42,6 +43,8 @@ class Trainer(BaseTrainer):
 
     def init_dataloader(self):
         self.ds = prepare_data_from_tfds(batch_size=1)
+        self.test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord',
+                                         shuffle=False, batch_size=1)
         metadata_path = "dataset/water_drop/metadata.json"
         with open(metadata_path, 'rt') as f:
             metadata = json.loads(f.read())
@@ -66,6 +69,8 @@ class Trainer(BaseTrainer):
         self.decoder = Decoder(self.normalization_stats, node_features_dim=self.n_features).to(self.device)
 
         self.models = [self.encoder, self.proc, self.decoder]
+        for model in self.models:
+            model.to(self.device)
 
         if self.load_path is not None:
             load_path = self.load_path
@@ -84,7 +89,7 @@ class Trainer(BaseTrainer):
 
         # OPTIMIZER
         self.opt_encoder = optim.Adam(self.encoder.parameters(), lr=self.lr)
-        self.opt_proc = optim.Adam(self.proc.all_parameters(), lr=self.lr)
+        self.opt_proc = optim.Adam(self.proc.parameters(), lr=self.lr)
         self.opt_decoder = optim.Adam(self.decoder.parameters(), lr=self.lr)
 
         self.optimizers = [self.opt_encoder, self.opt_proc, self.opt_decoder]
@@ -100,6 +105,32 @@ class Trainer(BaseTrainer):
         self.mean_error_game = torch.zeros([1], device=self.device)
 
 
+    def test(self):
+        n_test = 100
+        loss_test = 0
+        for model in self.models:
+            model.eval()
+        for i, (features, labels) in zip(range(n_test), self.test_ds):
+            positions = torch.tensor(features['position']).to(self.device)
+            labels = torch.tensor(labels).to(self.device)
+            with torch.no_grad():
+                acc_pred = self.apply_model(positions)
+            acc_norm = get_acc(positions, labels, self.normalization_stats)  # normalised
+            loss = nn.MSELoss()(acc_pred, acc_norm)
+            loss_test += loss.item() / n_test
+        self.writer.add_scalar("loss_test", loss_test, self.idx)
+
+    def apply_model(self, positions, normalise=True):
+
+        # Create graph with features
+        data = self.encoder(positions)
+        # Process graph
+        data = self.proc(data)
+        # print("Processed Data: ", data)
+        # extract acceleration using decoder
+        acc_pred = self.decoder(data)
+        return acc_pred
+
 
     def train(self):
         for epoch in range(self.n_epochs):
@@ -110,54 +141,26 @@ class Trainer(BaseTrainer):
 
     def train_epoch(self):
         for features, labels in self.ds:
+            for model in self.models:
+                model.train()
             self.idx += 1
-            # ███████╗██╗  ██╗████████╗██████╗  █████╗  ██████╗████████╗    ██╗███╗   ██╗███████╗ ██████╗
-            # ██╔════╝╚██╗██╔╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝    ██║████╗  ██║██╔════╝██╔═══██╗
-            # █████╗   ╚███╔╝    ██║   ██████╔╝███████║██║        ██║       ██║██╔██╗ ██║█████╗  ██║   ██║
-            # ██╔══╝   ██╔██╗    ██║   ██╔══██╗██╔══██║██║        ██║       ██║██║╚██╗██║██╔══╝  ██║   ██║
-            # ███████╗██╔╝ ██╗   ██║   ██║  ██║██║  ██║╚██████╗   ██║       ██║██║ ╚████║██║     ╚██████╔╝
-            # ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝   ╚═╝       ╚═╝╚═╝  ╚═══╝╚═╝      ╚═════╝
             features['position'] = torch.tensor(features['position']).to(self.device)
-            features['n_particles_per_example'] = torch.tensor(features['n_particles_per_example']).to(self.device)
+            features['n_particles_per_example'] = torch.tensor(
+                features['n_particles_per_example']).to(self.device)
             features['particle_type'] = torch.tensor(features['particle_type']).to(self.device)
             labels = torch.tensor(labels).to(self.device)
-            position = features["position"]
+            positions = features["position"]
 
-            print(position.shape)
+            print(positions.shape)
 
-            if any(features['particle_type'] !=5):
+            if any(features['particle_type'] != 5):
                 print(features['particle_type'].unique())
                 raise RuntimeError("Ma allora particle type puo davvero essere diverso da 5 !")
 
             # add noise
-            # position_with_noise = add_noise(position)
-            position_with_noise = position
+            positions = add_noise(positions, std=self.std_noise)
 
-            """
-            n is the number of particles
-            `partycle_type`: Integer values tensor of size n. Each value represent the material of the ith particle
-            `position`: Float values tensor of size n x 6 x 2. It represents the last six positions (x, y) of the particles
-            `n_particles_per_example`: Integer values Tensor of size 2 = [n1, n2] with n1 + n2 = n ????????? 
-
-            `labels`: Float values tensor of size n x 2. It represents future positions to predict        
-            """
-
-            #  █████╗ ██████╗ ██████╗ ██╗  ██╗   ██╗    ███╗   ███╗ ██████╗ ██████╗ ███████╗██╗
-            # ██╔══██╗██╔══██╗██╔══██╗██║  ╚██╗ ██╔╝    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝██║
-            # ███████║██████╔╝██████╔╝██║   ╚████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗  ██║
-            # ██╔══██║██╔═══╝ ██╔═══╝ ██║    ╚██╔╝      ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  ██║
-            # ██║  ██║██║     ██║     ███████╗██║       ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗███████╗
-            # ╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═╝       ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝
-
-            # Create graph with features
-            data = self.encoder(position_with_noise)
-            # Process graph
-            data = self.proc(data)
-            # print("Processed Data: ", data)
-            # extract acceleration using decoder
-            acc_pred = self.decoder(data)
-            # labels_est = integrator(position, acc)
-            # print("Acceleration:", acc)
+            acc_pred = self.apply_model(positions, normalise=True)
 
             # ██╗   ██╗██████╗ ██████╗  █████╗ ████████╗███████╗
             # ██║   ██║██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝██╔════╝
@@ -166,9 +169,9 @@ class Trainer(BaseTrainer):
             # ╚██████╔╝██║     ██████╔╝██║  ██║   ██║   ███████╗
             #  ╚═════╝ ╚═╝     ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
-            # Ground truth acceleration
-            acc_norm = get_acc(position, labels, self.normalization_stats) #normalised
-            acc = get_acc(position, labels, None) # original
+            # Ground truth normalised acceleration
+            acc_norm = get_acc(positions, labels, self.normalization_stats) #normalised
+            acc = get_acc(positions, labels, None) # original
             # reset gradients
             for opt in self.optimizers:
                 opt.zero_grad()
@@ -182,9 +185,10 @@ class Trainer(BaseTrainer):
             loss_logged = loss.item()
 
             # Normalize outpout for better compairing with model predicted result
-            nomove_loss = benchmark_nomove_acc(position_with_noise, acc, self.normalization_stats['acceleration'])
+            nomove_loss = benchmark_nomove_acc(positions, acc, self.normalization_stats[
+                'acceleration'])
             noacc_loss = (acc_norm.detach() ** 2).mean() #benchmark_noacc_acc(position_with_noise, acc, self.normalization_stats['acceleration'])
-            nojerk_loss = benchmark_nojerk_acc(position_with_noise, acc, self.normalization_stats['acceleration'])
+            nojerk_loss = benchmark_nojerk_acc(positions, acc, self.normalization_stats['acceleration'])
 
             self.loss_list.append(loss_logged)
             self.mean_loss += loss_logged
@@ -194,8 +198,9 @@ class Trainer(BaseTrainer):
             print("Loss is :", loss_logged)
             if self.idx % self.interval_tensorboard == 0:
                 self.report(self.idx)
-            if self.idx % 500 == 0:
+            if self.idx % 1000 == 0:
                 self.save_models(self.idx)
+                self.test()
 
             [schedule.step() for schedule in self.schedulers]
 
@@ -203,11 +208,11 @@ class Trainer(BaseTrainer):
         for model in self.models:
             self.save_model(model, model.__class__.__name__, i)
         # Plot weights
-        self.writer.add_image("Encoder", self.plot_small_module(self.encoder), i)
-        self.writer.add_image("Proc - GN0", self.plot_small_module(self.proc.GNs[0]), i)
-        self.writer.add_image("Proc - GN5", self.plot_small_module(self.proc.GNs[5]), i)
-        # self.writer.add_image("Proc - GN9", self.plot_small_module(self.proc.GNs[9]), i)
-        self.writer.add_image("Decoder", self.plot_small_module(self.decoder), i)
+        # self.writer.add_image("Encoder", self.plot_small_module(self.encoder, i), i)
+        # self.writer.add_image("Proc - GN0", self.plot_small_module(self.proc.GNs[0], i), i)
+        # self.writer.add_image("Proc - GN5", self.plot_small_module(self.proc.GNs[5], i), i)
+        # # self.writer.add_image("Proc - GN9", self.plot_small_module(self.proc.GNs[9], i), i)
+        # self.writer.add_image("Decoder", self.plot_small_module(self.decoder, i), i)
 
 
 
@@ -231,10 +236,11 @@ if __name__ == "__main__":
         "n_epochs": 20,
         "interval_tensorboard": 3,
         "n_features": 128, #  128
-        "M": 7, # 10
+        "M": 10, # 10
         "R": 0.015, #0.015
-        "load_path": "runs/fit/20220925-164036/models",#"runs/fit/20220902-000721/models",
-        "load_idx": 163000
+        "std_noise": 0,
+        "load_path": None, #"runs/fit/20221006-232650/models",
+        "load_idx": 0
     }
     device = torch.device("cuda")
 

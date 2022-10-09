@@ -10,36 +10,6 @@ from torch_geometric.nn import MessagePassing, radius_graph
 from torch.utils.tensorboard import SummaryWriter
 # from torch.utils.tensorboard import SummaryWriter
 
-os.makedirs('train_log', exist_ok=True)
-os.makedirs('rollouts', exist_ok=True)
-
-test_path = "../dataset/water_drop/test.tfrecord"
-metadata_path =  "../dataset/water_drop/metadata.json"
-
-
-INPUT_SEQUENCE_LENGTH = 6
-batch_size = 1 #2
-noise_std = 6.7e-4 #6.7e-4
-training_steps = int(2e7)
-log_steps = 5
-eval_steps = 20
-save_steps = 100
-model_path = None  # 'model425000.pth'
-device = 'cpu'
-with open(metadata_path, 'rt') as f:
-    metadata = json.loads(f.read())
-num_steps = metadata['sequence_length'] - INPUT_SEQUENCE_LENGTH
-normalization_stats = {
-    'acceleration': {
-        'mean': torch.FloatTensor(metadata['acc_mean']).to(device),
-        'std': torch.sqrt(torch.FloatTensor(metadata['acc_std']) ** 2 + 0 ** 2).to(device),
-    },
-    'velocity': {
-        'mean': torch.FloatTensor(metadata['vel_mean']).to(device),
-        'std': torch.sqrt(torch.FloatTensor(metadata['vel_std']) ** 2 + 0 ** 2).to(device),
-    },
-}
-
 
 def build_mlp(
         input_size,
@@ -114,8 +84,9 @@ class InteractionNetwork(MessagePassing):
             node_out,
             edge_in,
             edge_out,
-            mlp_num_layers,
-            mlp_hidden_dim,
+            mlp_num_layers=2,
+            mlp_hidden_dim=128,
+            device=torch.device("cuda")
     ):
         super(InteractionNetwork, self).__init__(aggr='add')
         self.node_fn = nn.Sequential(
@@ -125,14 +96,20 @@ class InteractionNetwork(MessagePassing):
             *[build_mlp(node_in + node_in + edge_in, [mlp_hidden_dim] * mlp_num_layers, edge_out),
               nn.LayerNorm(edge_out)])
 
-    def forward(self, x, edge_index, e_features):
+    def forward(self, data):
+        from torch_geometric.data import Data
         # x: (E, node_in)
         # edge_index: (2, E)
         # e_features: (E, edge_in)
+        x = data.x
+        e_features = data.edge_attr
+        edge_index = data.edge_index
         x_residual = x
         e_features_residual = e_features
         x, e_features = self.propagate(edge_index=edge_index, x=x, e_features=e_features)
-        return x + x_residual, e_features + e_features_residual
+        x, e_features =  x + x_residual, e_features + e_features_residual
+        data = Data(x=x, edge_index=data.edge_index, edge_attr=e_features)
+        return data
 
     def message(self, edge_index, x_i, x_j, e_features):
         e_features = torch.cat([x_i, x_j, e_features], dim=-1)
@@ -591,6 +568,35 @@ def infer(simulator):
 
 if __name__ == '__main__':
 
+    os.makedirs('train_log', exist_ok=True)
+    os.makedirs('rollouts', exist_ok=True)
+
+    test_path = "../dataset/water_drop/test.tfrecord"
+    metadata_path = "../dataset/water_drop/metadata.json"
+
+    INPUT_SEQUENCE_LENGTH = 6
+    batch_size = 1  # 2
+    noise_std = 6.7e-4  # 6.7e-4
+    training_steps = int(2e7)
+    log_steps = 5
+    eval_steps = 20
+    save_steps = 100
+    model_path = None  # 'model425000.pth'
+    device = 'cpu'
+    with open(metadata_path, 'rt') as f:
+        metadata = json.loads(f.read())
+    num_steps = metadata['sequence_length'] - INPUT_SEQUENCE_LENGTH
+    normalization_stats = {
+        'acceleration': {
+            'mean': torch.FloatTensor(metadata['acc_mean']).to(device),
+            'std': torch.sqrt(torch.FloatTensor(metadata['acc_std']) ** 2 + 0 ** 2).to(device),
+            },
+        'velocity': {
+            'mean': torch.FloatTensor(metadata['vel_mean']).to(device),
+            'std': torch.sqrt(torch.FloatTensor(metadata['vel_std']) ** 2 + 0 ** 2).to(device),
+            },
+        }
+
     simulator = Simulator(
         particle_dimension=2,
         node_in=30,
@@ -610,5 +616,5 @@ if __name__ == '__main__':
         simulator.load(model_path)
     if device == 'cuda':
         simulator.cuda()
+    infer(simulator)
     train(simulator)
-    # infer(simulator)

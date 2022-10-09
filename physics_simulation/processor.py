@@ -6,7 +6,7 @@ from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 from torch_geometric.data import Data
 from torch_geometric.nn.conv.cg_conv import CGConv
 from torch_geometric.utils import add_self_loops, degree
-
+from lib.train_pytorch import InteractionNetwork
 
 from physics_simulation.new_GATconv import New_GATConv
 
@@ -23,7 +23,8 @@ class Processor(torch.nn.Sequential):
             device):
         # Init parent
         self.M = M
-        self.GNs = [GN(node_in, node_out, edge_in, edge_out, device=device) for i in range(self.M)]
+        self.GNs = [InteractionNetwork(node_in, node_out, edge_in, edge_out, device=device) for i in range(self.M)]
+        # self.GNs = [GN(node_in, node_out, edge_in, edge_out, device=device) for i in range(self.M)]
         super().__init__(*self.GNs)
 
     def all_parameters(self):
