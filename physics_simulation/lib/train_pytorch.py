@@ -514,11 +514,11 @@ def train(simulator):
             sampled_noise *= non_kinematic_mask.view(-1, 1, 1)
 
             pred, target = simulator.predict_accelerations(
-                next_position=labels,
-                position_sequence_noise=sampled_noise,
-                position_sequence=features['position'],
-                n_particles_per_example=features['n_particles_per_example'],
-                particle_types=features['particle_type'],
+                next_position           = labels,
+                position_sequence_noise = sampled_noise,
+                position_sequence       = features['position'],
+                n_particles_per_example = features['n_particles_per_example'],
+                particle_types          = features['particle_type'],
             )
             loss = (pred - target) ** 2
             loss = loss.sum(dim=-1)

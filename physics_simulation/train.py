@@ -152,6 +152,8 @@ class Trainer(BaseTrainer):
             positions = features["position"]
 
             print(positions.shape)
+            # if positions.shape[0] < 1000:
+            #     continue
 
             if any(features['particle_type'] != 5):
                 print(features['particle_type'].unique())
@@ -238,11 +240,11 @@ if __name__ == "__main__":
         "n_features": 128, #  128
         "M": 10, # 10
         "R": 0.015, #0.015
-        "std_noise": 0,
-        "load_path": None, #"runs/fit/20221006-232650/models",
-        "load_idx": 0
+        "std_noise": 1e-5,
+        "load_path": "runs/fit/20221115-002132/models",
+        "load_idx": 440000
     }
-    device = torch.device("cuda")
+    device = torch.device("cpu")
 
     trainer = Trainer(hyperparams=hyperparams, seed=99, device=device)
     trainer.train()

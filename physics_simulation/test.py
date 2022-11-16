@@ -98,7 +98,7 @@ def roll_position(gnn_position, labels_est):
 if __name__ == "__main__":
     gnn_position = None
 
-    model = loadmodel("runs/fit/20221009-020424/models", 400000)
+    model = loadmodel("runs/fit/20221115-002132/models", 440000)
     # test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
     # test_ds = prepare_data_from_tfds_test(data_path='dataset/water_drop/valid.tfrecord', is_rollout=True, shuffle=False, batch_size=1)
     test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord', shuffle=False, batch_size=1)
@@ -139,3 +139,5 @@ if __name__ == "__main__":
         gnn_position = roll_position(gnn_position, position_est)
 
         plot_particles(labels, position_est)
+
+#ffmpeg -f image2  -framerate 50 -i %004d.png animation.gif

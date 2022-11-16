@@ -1,14 +1,10 @@
 import torch
 from torch.nn import Linear, LayerNorm
 import torch.nn.functional as F
-from torch_geometric.nn import MessagePassing, GATConv, TopKPooling, global_mean_pool
-from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
+from torch_geometric.nn import MessagePassing
 from torch_geometric.data import Data
-from torch_geometric.nn.conv.cg_conv import CGConv
-from torch_geometric.utils import add_self_loops, degree
-from lib.train_pytorch import InteractionNetwork
+from torch_geometric.utils import degree
 
-from physics_simulation.new_GATconv import New_GATConv
 
 # A stack of M GNs, each GN has 2 hidden layers + LayerNorm at the end, size is always 128 for all layers
 
@@ -23,7 +19,7 @@ class Processor(torch.nn.Sequential):
             device):
         # Init parent
         self.M = M
-        self.GNs = [InteractionNetwork(node_in, node_out, edge_in, edge_out, device=device) for i in range(self.M)]
+        self.GNs = [GN(node_in, node_out, edge_in, edge_out, device=device) for i in range(self.M)]
         # self.GNs = [GN(node_in, node_out, edge_in, edge_out, device=device) for i in range(self.M)]
         super().__init__(*self.GNs)
 
@@ -69,17 +65,17 @@ class GN(MessagePassing):
 
         self.edge_attr = None
 
-    def forward(self, data):
+    def forward(self, in_data):
         # x: (E, node_in)
         # edge_index: (2, E)
         # e_features: (E, edge_in)
 
-        x = data.x
+        x = in_data.x
         # TODO: Bisogna aggiungere i self loops ai edge_index ? oppure no ?
         #  E se si, poi bisogna togliergli alla fine? O bisognava metterli nell'encoder ?
         # edge_index, _ = add_self_loops(data.edge_index, num_nodes=x.size(0))
-        edge_index = data.edge_index
-        self.edge_attr = data.edge_attr
+        edge_index = in_data.edge_index
+        self.edge_attr = in_data.edge_attr
 
         x_residual = x
         edge_attr_residual = self.edge_attr
@@ -94,10 +90,10 @@ class GN(MessagePassing):
         self.edge_attr = self.edge_layernorm(self.edge_attr)
 
         x = x + x_residual
-        self.edge_attr  = self.edge_attr + edge_attr_residual
+        self.edge_attr = self.edge_attr + edge_attr_residual
 
-        data = Data(x=x, edge_index=data.edge_index, edge_attr=self.edge_attr )
-        return data
+        out_data = Data(x=x, edge_index=in_data.edge_index, edge_attr=self.edge_attr)
+        return out_data
 
     def message(self, edge_index, x_i, x_j, idx, norm):
         self.edge_attr = torch.cat([x_i, x_j, self.edge_attr], dim=-1)
@@ -110,7 +106,6 @@ class GN(MessagePassing):
         x_updated = torch.cat([x_updated, x], dim=-1)
         x_updated = self.node_fn[idx](x_updated)
         return x_updated
-
 
 
 if __name__ == "__main__":

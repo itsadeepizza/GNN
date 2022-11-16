@@ -61,14 +61,15 @@ class Encoder(nn.Module):
                             self.normalization_stats['velocity']['std']
         abs_speeds = torch.sqrt(delta_speeds[:, 0]**2 + delta_speeds[:, 1]**2).unsqueeze(1)
         relative_motion = (delta_speeds[:, 0] * delta_pos[:, 0] + delta_speeds[:, 1] * delta_pos[:,
-                                                                                   1]).unsqueeze(1) / abs_speeds / dist
+                                                                                   1]).unsqueeze(
+            1) / (abs_speeds + 1e-6) /  (dist + 1e-6)
         edge_attr = torch.cat((delta_pos, dist, delta_speeds, abs_speeds, relative_motion), dim=1)
         edge_attr = self.edge_l1(edge_attr)
         edge_attr = torch.relu(edge_attr)
         edge_attr = self.edge_l2(edge_attr)
         edge_attr = torch.relu(edge_attr)
         edge_attr = self.edge_l3(edge_attr)
-        edge_attr = self.layer_norm(edge_attr)
+        edge_attr = self.edge_layer_norm(edge_attr)
 
         data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
         return data
@@ -100,12 +101,12 @@ class Encoder(nn.Module):
         return x
 
     @staticmethod
-    def get_adjacency_matrix(position, r):
+    def get_adjacency_matrix(position, r, max_neigh=16):
         """
         Return an intersection matrix based on particle nearer than R
         """
         last_position = position[:, -1, :]
-        A = tg_nn.radius_graph(last_position, r)
+        A = tg_nn.radius_graph(last_position, r, max_num_neighbors=max_neigh)
         return A
 
 
