@@ -59,11 +59,11 @@ def loadmodel(path, idx):
 
 # (enc, proc, dec) = loadmodel()
 
-def predict(model, position):
+def predict(model, position, batch_index):
     (encoder, proc, decoder) = model
     # Create graph with features + process graph
     with torch.no_grad():
-        data = encoder(position)
+        data = encoder(position, batch_index)
         data = proc(data)
         # extract acceleration using decoder + euler integrator
         acc = decoder(data, denormalize=False)
@@ -98,7 +98,7 @@ def roll_position(gnn_position, labels_est):
 if __name__ == "__main__":
     gnn_position = None
 
-    model = loadmodel("runs/fit/20221115-002132/models", 440000)
+    model = loadmodel("runs/fit/20221119-235848/models", 32000)
     # test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
     # test_ds = prepare_data_from_tfds_test(data_path='dataset/water_drop/valid.tfrecord', is_rollout=True, shuffle=False, batch_size=1)
     test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord', shuffle=False, batch_size=1)
@@ -118,6 +118,7 @@ if __name__ == "__main__":
         features['particle_type'] = torch.tensor(features['particle_type']).to(device)
         labels = torch.tensor(labels).to(device)
         position = features["position"]
+        batch_index = torch.zeros(len(position))
         if gnn_position is None:
             print("Init position for GNN")
             gnn_position = position
@@ -129,8 +130,9 @@ if __name__ == "__main__":
         # ██║  ██║██║     ██║     ███████╗██║       ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗███████╗
         # ╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═╝       ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝
 
-        acc_est_norm = predict(model, gnn_position)
-        acc_est = acc_est_norm * normalization_stats['acceleration']['std'] + normalization_stats['acceleration']['mean']
+        acc_est_norm = predict(model, gnn_position, batch_index)
+        acc_est = acc_est_norm * normalization_stats['acceleration']['std']
+        # acc_est = acc_est_norm * normalization_stats['acceleration']['std'] + normalization_stats['acceleration']['mean']
         acc = get_acc(gnn_position, labels)
         acc_norm = get_acc(position, labels, normalization_stats)
         print(acc_norm)

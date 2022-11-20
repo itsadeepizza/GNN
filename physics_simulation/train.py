@@ -39,12 +39,12 @@ class Trainer(BaseTrainer):
         self.loss_list = []
         self.idx = self.load_idx
         self.load_path = load_path
-        self.load_idx  = load_idx
+        self.load_idx = load_idx
 
     def init_dataloader(self):
-        self.ds = prepare_data_from_tfds(batch_size=1)
+        self.ds = prepare_data_from_tfds(batch_size=self.n_batch)
         self.test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord',
-                                         shuffle=False, batch_size=1)
+                                              shuffle=False, batch_size=self.n_batch)
         metadata_path = "dataset/water_drop/metadata.json"
         with open(metadata_path, 'rt') as f:
             metadata = json.loads(f.read())
@@ -112,18 +112,23 @@ class Trainer(BaseTrainer):
             model.eval()
         for i, (features, labels) in zip(range(n_test), self.test_ds):
             positions = torch.tensor(features['position']).to(self.device)
+            # Create batch index tensor (which batch each particle is assigned)
+            batch_pos = features["n_particles_per_example"].cumsum(0)[:-1]
+            batch_index = torch.zeros([len(positions)])
+            batch_index[batch_pos] = 1
+            batch_index = batch_index.cumsum(0)
             labels = torch.tensor(labels).to(self.device)
             with torch.no_grad():
-                acc_pred = self.apply_model(positions)
+                acc_pred = self.apply_model(positions, batch_index)
             acc_norm = get_acc(positions, labels, self.normalization_stats)  # normalised
             loss = nn.MSELoss()(acc_pred, acc_norm)
             loss_test += loss.item() / n_test
         self.writer.add_scalar("loss_test", loss_test, self.idx)
 
-    def apply_model(self, positions, normalise=True):
+    def apply_model(self, positions, batch_index, normalise=True):
 
         # Create graph with features
-        data = self.encoder(positions)
+        data = self.encoder(positions, batch_index)
         # Process graph
         data = self.proc(data)
         # print("Processed Data: ", data)
@@ -150,6 +155,11 @@ class Trainer(BaseTrainer):
             features['particle_type'] = torch.tensor(features['particle_type']).to(self.device)
             labels = torch.tensor(labels).to(self.device)
             positions = features["position"]
+            # Create batch index tensor (which batch each particle is assigned)
+            batch_pos = features["n_particles_per_example"].cumsum(0)[:-1]
+            batch_index = torch.zeros([len(positions)])
+            batch_index[batch_pos] = 1
+            batch_index = batch_index.cumsum(0)
 
             print(positions.shape)
             # if positions.shape[0] < 1000:
@@ -162,7 +172,7 @@ class Trainer(BaseTrainer):
             # add noise
             positions = add_noise(positions, std=self.std_noise)
 
-            acc_pred = self.apply_model(positions, normalise=True)
+            acc_pred = self.apply_model(positions, batch_index, normalise=True)
 
             # ██╗   ██╗██████╗ ██████╗  █████╗ ████████╗███████╗
             # ██║   ██║██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝██╔════╝
@@ -232,18 +242,18 @@ class Trainer(BaseTrainer):
 
 
 if __name__ == "__main__":
-
     hyperparams = {
+        "n_batch": 2,
         "lr": 1e-4,
         "n_epochs": 20,
         "interval_tensorboard": 3,
-        "n_features": 128, #  128
-        "M": 10, # 10
-        "R": 0.015, #0.015
+        "n_features": 128,  # 128
+        "M": 10,  # 10
+        "R": 0.015,  # 0.015
         "std_noise": 1e-5,
-        "load_path": "runs/fit/20221115-002132/models",
-        "load_idx": 440000
-    }
+        "load_path": None,
+        "load_idx": 0
+        }
     device = torch.device("cpu")
 
     trainer = Trainer(hyperparams=hyperparams, seed=99, device=device)

@@ -75,14 +75,18 @@ class GN(MessagePassing):
         #  E se si, poi bisogna togliergli alla fine? O bisognava metterli nell'encoder ?
         # edge_index, _ = add_self_loops(data.edge_index, num_nodes=x.size(0))
         edge_index = in_data.edge_index
+        batch_index = in_data.batch_index
         self.edge_attr = in_data.edge_attr
 
-        x_residual = x
-        edge_attr_residual = self.edge_attr
+        x_residual = x.clone()
+        edge_attr_residual = self.edge_attr.clone()
 
         for idx in [0, 1]:
             norm = compute_norm(edge_index, x)
-            x = self.propagate(edge_index=edge_index, x=x, idx=idx, norm=norm)
+            # s = int(len(batch_index) - batch_index.sum())
+            # x[:s] = 0
+            # self.edge_attr[edge_index[0] < s] = 0
+            x = self.propagate(edge_index=edge_index, x=x, idx=idx, norm=norm, batch_index=batch_index)
             x = F.relu(x)
             self.edge_attr = F.relu(self.edge_attr)
 
@@ -92,10 +96,13 @@ class GN(MessagePassing):
         x = x + x_residual
         self.edge_attr = self.edge_attr + edge_attr_residual
 
-        out_data = Data(x=x, edge_index=in_data.edge_index, edge_attr=self.edge_attr)
+        out_data = Data(x=x, edge_index=in_data.edge_index, edge_attr=self.edge_attr,
+                        batch_index=batch_index)
         return out_data
 
     def message(self, edge_index, x_i, x_j, idx, norm):
+
+
         self.edge_attr = torch.cat([x_i, x_j, self.edge_attr], dim=-1)
         self.edge_attr = self.edge_fn[idx](self.edge_attr)
         return self.edge_attr * norm.view(-1, 1)

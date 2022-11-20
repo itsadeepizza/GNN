@@ -31,6 +31,10 @@ def get_acc(position, last_position, normalization_stats=None):
     def normalize(acceleration, normalization_stats):
         if normalization_stats is None:
             return acceleration
+
+        return (acceleration) / \
+               normalization_stats['acceleration']['std']
+
         return (acceleration - normalization_stats['acceleration']['mean'])/ \
                normalization_stats['acceleration']['std']
 

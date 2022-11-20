@@ -34,7 +34,7 @@ class Encoder(nn.Module):
         # self.register_parameter(name='e0', param=torch.nn.Parameter(torch.rand(edge_features_dim, device=device)))
         # self.u0 = torch.nn.Parameter(torch.rand(128))
 
-    def forward(self, position) -> Data:
+    def forward(self, position, batch_index) -> Data:
         # Linearize x vector Nx6x2 -> Nx12
         x = self.position2x(position)
         # x = x.flatten(1)
@@ -46,7 +46,7 @@ class Encoder(nn.Module):
         x = self.layer_norm(x)
 
 
-        edge_index = self.get_adjacency_matrix(position, self.r)
+        edge_index = self.get_adjacency_matrix(position, batch_index, self.r)
         # TODO: Self loops or not self loops ?
         # edge_index, _ = add_self_loops(edge_index, num_nodes=x.size(0))
         # a tensor of size E x 2
@@ -71,7 +71,7 @@ class Encoder(nn.Module):
         edge_attr = self.edge_l3(edge_attr)
         edge_attr = self.edge_layer_norm(edge_attr)
 
-        data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+        data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch_index=batch_index)
         return data
 
     def position2x(self, position):
@@ -101,12 +101,13 @@ class Encoder(nn.Module):
         return x
 
     @staticmethod
-    def get_adjacency_matrix(position, r, max_neigh=16):
+    def get_adjacency_matrix(position, batch_index, r, max_neigh=32):
         """
         Return an intersection matrix based on particle nearer than R
         """
         last_position = position[:, -1, :]
-        A = tg_nn.radius_graph(last_position, r, max_num_neighbors=max_neigh)
+        A = tg_nn.radius_graph(last_position, r, batch=batch_index, max_num_neighbors=max_neigh,
+                               loop=True)
         return A
 
 
