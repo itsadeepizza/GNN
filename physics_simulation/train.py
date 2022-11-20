@@ -51,12 +51,12 @@ class Trainer(BaseTrainer):
         # num_steps = metadata['sequence_length'] - INPUT_SEQUENCE_LENGTH
         self.normalization_stats = {
             'acceleration': {
-                'mean': torch.FloatTensor(metadata['acc_mean']).to(device),
-                'std': torch.FloatTensor(metadata['acc_std']).to(device),
+                'mean': torch.FloatTensor(metadata['acc_mean']).to(self.device),
+                'std': torch.FloatTensor(metadata['acc_std']).to(self.device),
                 },
             'velocity': {
-                'mean': torch.FloatTensor(metadata['vel_mean']).to(device),
-                'std': torch.FloatTensor(metadata['vel_std']).to(device),
+                'mean': torch.FloatTensor(metadata['vel_mean']).to(self.device),
+                'std': torch.FloatTensor(metadata['vel_std']).to(self.device),
                 },
             }
         self.bounds = torch.tensor(metadata["bounds"], device=self.device)
