@@ -116,7 +116,7 @@ class Trainer(BaseTrainer):
             batch_pos = features["n_particles_per_example"].cumsum(0)[:-1]
             batch_index = torch.zeros([len(positions)])
             batch_index[batch_pos] = 1
-            batch_index = batch_index.cumsum(0)
+            batch_index = batch_index.cumsum(0).to(self.device)
             labels = torch.tensor(labels).to(self.device)
             with torch.no_grad():
                 acc_pred = self.apply_model(positions, batch_index)
@@ -159,7 +159,7 @@ class Trainer(BaseTrainer):
             batch_pos = features["n_particles_per_example"].cumsum(0)[:-1]
             batch_index = torch.zeros([len(positions)])
             batch_index[batch_pos] = 1
-            batch_index = batch_index.cumsum(0)
+            batch_index = batch_index.cumsum(0).to(self.device)
 
             print(positions.shape)
             # if positions.shape[0] < 1000:
