@@ -43,9 +43,9 @@ class Trainer(BaseTrainer):
 
     def init_dataloader(self):
         self.ds = prepare_data_from_tfds(batch_size=self.n_batch)
-        self.test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord',
+        self.test_ds = prepare_data_from_tfds(data_path=os.environ['ROOT_DATASET'] + '/water_drop/valid.tfrecord',
                                               shuffle=False, batch_size=self.n_batch)
-        metadata_path = "dataset/water_drop/metadata.json"
+        metadata_path = os.environ['ROOT_DATASET'] +  "/water_drop/metadata.json"
         with open(metadata_path, 'rt') as f:
             metadata = json.loads(f.read())
         # num_steps = metadata['sequence_length'] - INPUT_SEQUENCE_LENGTH
@@ -242,6 +242,9 @@ class Trainer(BaseTrainer):
 
 
 if __name__ == "__main__":
+    import os
+
+    os.environ['ROOT_DATASET'] = "dataset/"
     hyperparams = {
         "n_batch": 2,
         "lr": 1e-4,
@@ -251,8 +254,8 @@ if __name__ == "__main__":
         "M": 10,  # 10
         "R": 0.015,  # 0.015
         "std_noise": 1e-5,
-        "load_path": None,
-        "load_idx": 0
+        "load_path": "runs/fit/20221119-235848/models",
+        "load_idx": 33000
         }
     device = torch.device("cpu")
 

@@ -9,12 +9,12 @@ from encoder import Encoder
 from euler_integrator import integrator
 
 def _read_metadata(data_path):
-    metadata_path = "dataset/water_drop/metadata.json"
+    metadata_path = os.environ['ROOT_DATASET'] + "/water_drop/metadata.json"
     with open(metadata_path, 'r') as f:
         return json.loads(f.read())
 
 
-def prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', is_rollout=False, batch_size=2, shuffle=True):
+def prepare_data_from_tfds(data_path=os.environ['ROOT_DATASET'] + '/water_drop/train.tfrecord', is_rollout=False, batch_size=2, shuffle=True):
     import functools
     import tensorflow.compat.v1 as tf
     import tensorflow_datasets as tfds
@@ -75,7 +75,7 @@ def prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', is_rol
     return ds
 
 
-def prepare_data_from_tfds_test(data_path='dataset/water_drop/train.tfrecord', is_rollout=False, batch_size=2, shuffle=True):
+def prepare_data_from_tfds_test(data_path=os.environ['ROOT_DATASET'] + '/water_drop/train.tfrecord', is_rollout=False, batch_size=2, shuffle=True):
     # def prepare_data_from_tfds(data_path='data/train.tfrecord', is_rollout=False, batch_size=2):
         import functools
         import tensorflow.compat.v1 as tf
