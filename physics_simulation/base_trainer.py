@@ -51,7 +51,7 @@ class BaseTrainer():
         }
         now = datetime.datetime.now()
         now_str = now.strftime("%Y%m%d-%H%M%S")
-        self.log_dir = "runs/fit/" + now_str
+        self.log_dir = os.environ['ROOT_RUNS'] +  "runs/fit/" + now_str
         self.summary_dir = self.log_dir + "/summary"
         self.models_dir = self.log_dir + "/models"
         self.test_dir = self.log_dir + "/test"

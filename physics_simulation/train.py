@@ -245,6 +245,7 @@ if __name__ == "__main__":
     import os
 
     os.environ['ROOT_DATASET'] = "dataset/"
+    os.environ['ROOT_RUNS'] = './'
     hyperparams = {
         "n_batch": 2,
         "lr": 1e-4,
