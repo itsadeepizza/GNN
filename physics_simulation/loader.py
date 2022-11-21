@@ -75,7 +75,7 @@ def prepare_data_from_tfds(data_path, is_rollout=False, batch_size=2, shuffle=Tr
     return ds
 
 
-def prepare_data_from_tfds_test(data_path=os.environ['ROOT_DATASET'] + '/water_drop/train.tfrecord', is_rollout=False, batch_size=2, shuffle=True):
+def prepare_data_from_tfds_test(data_path, is_rollout=False, batch_size=2, shuffle=True):
     # def prepare_data_from_tfds(data_path='data/train.tfrecord', is_rollout=False, batch_size=2):
         import functools
         import tensorflow.compat.v1 as tf
