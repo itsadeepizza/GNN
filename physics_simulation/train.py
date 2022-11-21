@@ -26,6 +26,9 @@ class Trainer(BaseTrainer):
     def __init__(self, hyperparams: dict, device=None, seed=None, load_path=None, load_idx=0):
         super().__init__(hyperparams, device=device, seed=seed)
 
+        self.train_dataset = os.environ['ROOT_DATASET'] + '/water_drop/valid.tfrecord'
+        self.test_dataset = os.environ['ROOT_DATASET'] + '/water_drop/valid.tfrecord'
+
         self.init_dataloader()
         self.init_models()
 
@@ -38,8 +41,7 @@ class Trainer(BaseTrainer):
         self.load_path = load_path
         self.load_idx = load_idx
 
-        self.train_dataset = os.environ['ROOT_DATASET'] + '/water_drop/valid.tfrecord'
-        self.test_dataset = os.environ['ROOT_DATASET'] + '/water_drop/valid.tfrecord'
+
 
     def init_dataloader(self):
         self.ds = prepare_data_from_tfds(data_path=self.train_dataset, batch_size=self.n_batch)
