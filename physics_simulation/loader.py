@@ -14,7 +14,7 @@ def _read_metadata(data_path):
         return json.loads(f.read())
 
 
-def prepare_data_from_tfds(data_path=os.environ['ROOT_DATASET'] + '/water_drop/train.tfrecord', is_rollout=False, batch_size=2, shuffle=True):
+def prepare_data_from_tfds(data_path, is_rollout=False, batch_size=2, shuffle=True):
     import functools
     import tensorflow.compat.v1 as tf
     import tensorflow_datasets as tfds

@@ -26,6 +26,13 @@ class Processor(torch.nn.Sequential):
     def all_parameters(self):
         return [param for GN in self.GNs for param in list(GN.parameters())]
 
+    def forward(self, data: Data) -> Data:
+        x_residual = data.x.clone()
+        data = super().forward(data)
+        data.x = torch.cat([data.x, x_residual], axis=1)
+        return data
+
+
     # def forward(self, data: Data):
     #     for i in range(self.M):
     #         data = self.GNs[i](data)

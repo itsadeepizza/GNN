@@ -1,16 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import os
 import json
-import torch
 from processor import Processor
 from decoder import Decoder
 from encoder import Encoder
 from euler_integrator import integrator, get_acc
 from base_trainer import BaseTrainer
 from loader import prepare_data_from_tfds
-import numpy as np
 from benchmark import benchmark_nomove_acc, benchmark_noacc_acc, benchmark_nojerk_acc
 import torch
 from torch.optim.lr_scheduler import StepLR
@@ -41,11 +38,14 @@ class Trainer(BaseTrainer):
         self.load_path = load_path
         self.load_idx = load_idx
 
+        self.train_dataset = os.environ['ROOT_DATASET'] + '/water_drop/valid.tfrecord'
+        self.test_dataset = os.environ['ROOT_DATASET'] + '/water_drop/valid.tfrecord'
+
     def init_dataloader(self):
-        self.ds = prepare_data_from_tfds(batch_size=self.n_batch)
-        self.test_ds = prepare_data_from_tfds(data_path=os.environ['ROOT_DATASET'] + '/water_drop/valid.tfrecord',
+        self.ds = prepare_data_from_tfds(data_path=self.train_dataset, batch_size=self.n_batch)
+        self.test_ds = prepare_data_from_tfds(data_path=self.test_dataset,
                                               shuffle=False, batch_size=self.n_batch)
-        metadata_path = os.environ['ROOT_DATASET'] +  "/water_drop/metadata.json"
+        metadata_path = os.environ['ROOT_DATASET'] + "/water_drop/metadata.json"
         with open(metadata_path, 'rt') as f:
             metadata = json.loads(f.read())
         # num_steps = metadata['sequence_length'] - INPUT_SEQUENCE_LENGTH
@@ -249,13 +249,13 @@ if __name__ == "__main__":
         "n_batch": 2,
         "lr": 1e-4,
         "n_epochs": 20,
-        "interval_tensorboard": 3,
+        "interval_tensorboard": 100,
         "n_features": 128,  # 128
         "M": 10,  # 10
         "R": 0.015,  # 0.015
         "std_noise": 1e-5,
-        "load_path": "runs/fit/20221119-235848/models",
-        "load_idx": 33000
+        "load_path": None,# "runs/fit/20221120-103911/models",
+        "load_idx": 0
         }
     device = torch.device("cpu")
 
