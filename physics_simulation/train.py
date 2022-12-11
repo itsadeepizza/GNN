@@ -22,7 +22,7 @@ def add_noise(position: torch.Tensor, std=0):
 class Trainer(BaseTrainer):
 
 
-    def __init__(self, load_path=None, load_idx=0, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.train_dataset = conf.ROOT_DATASET + '/water_drop/valid.tfrecord'
@@ -36,9 +36,8 @@ class Trainer(BaseTrainer):
         self.mean_loss_nojerk = 0
 
         self.loss_list = []
-        self.idx = load_idx
-        self.load_path = conf.LOAD_PATH
-        self.load_idx = conf.LOAD_IDX
+        self.idx = conf.LOAD_IDX
+
 
 
 
@@ -79,17 +78,16 @@ class Trainer(BaseTrainer):
             model.to(self.device)
 
         if conf.LOAD_PATH is not None:
-            load_path = self.load_path
-            load_idx = self.load_idx
-            encoder_w = torch.load(os.path.join(load_path, f"Encoder/Encoder_{load_idx}.pth"))
+
+            encoder_w = torch.load(os.path.join(conf.LOAD_PATH, f"Encoder/Encoder_{conf.LOAD_IDX}.pth"))
             self.encoder.load_state_dict(encoder_w)
             # self.encoder.eval()
 
-            processor_w = torch.load(os.path.join(load_path, f"Processor/Processor_{load_idx}.pth"))
+            processor_w = torch.load(os.path.join(conf.LOAD_PATH, f"Processor/Processor_{conf.LOAD_IDX}.pth"))
             self.proc.load_state_dict(processor_w)
             # self.processor.eval()
 
-            decoder_w = torch.load(os.path.join(load_path, f"Decoder/Decoder_{load_idx}.pth"))
+            decoder_w = torch.load(os.path.join(conf.LOAD_PATH, f"Decoder/Decoder_{conf.LOAD_IDX}.pth"))
             self.decoder.load_state_dict(decoder_w)
             # self.decoder.eval()
 
