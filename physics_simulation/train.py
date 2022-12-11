@@ -37,8 +37,8 @@ class Trainer(BaseTrainer):
 
         self.loss_list = []
         self.idx = load_idx
-        self.load_path = load_path
-        self.load_idx = load_idx
+        self.load_path = conf.LOAD_PATH
+        self.load_idx = conf.LOAD_IDX
 
 
 
