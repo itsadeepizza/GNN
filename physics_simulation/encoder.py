@@ -4,6 +4,7 @@ from torch_geometric import nn as tg_nn
 from torch_geometric.data import Data
 import matplotlib.pyplot as plt
 from torch_geometric.utils import add_self_loops
+from builtins import config as conf
 
 
 class Encoder(nn.Module):

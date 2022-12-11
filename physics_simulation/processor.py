@@ -4,6 +4,9 @@ import torch.nn.functional as F
 from torch_geometric.nn import MessagePassing
 from torch_geometric.data import Data
 from torch_geometric.utils import degree
+import encoder
+from decoder import Decoder
+from euler_integrator import integrator
 
 
 # A stack of M GNs, each GN has 2 hidden layers + LayerNorm at the end, size is always 128 for all layers
@@ -27,9 +30,9 @@ class Processor(torch.nn.Sequential):
         return [param for GN in self.GNs for param in list(GN.parameters())]
 
     def forward(self, data: Data) -> Data:
-        x_residual = data.x.clone()
+        # x_residual = data.x.clone()
         data = super().forward(data)
-        data.x = torch.cat([data.x, x_residual], axis=1)
+        # data.x = torch.cat([data.x, x_residual], axis=1)
         return data
 
 
@@ -123,9 +126,7 @@ class GN(MessagePassing):
 
 
 if __name__ == "__main__":
-    import encoder
-    from decoder import Decoder
-    from euler_integrator import integrator
+
 
     device = torch.device("cuda")
 

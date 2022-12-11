@@ -1,12 +1,7 @@
 import torch
-from torch.nn import Linear, LayerNorm
-import torch.nn.functional as F
-from torch_geometric.nn import MessagePassing, GATConv, TopKPooling, global_mean_pool
-from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 from torch_geometric.data import Data
-from torch_geometric.nn.conv.cg_conv import CGConv
-from torch_geometric.utils import add_self_loops, degree
 import torch.nn as nn
+from builtins import config as conf
 
 class Decoder(nn.Module):
     """
@@ -14,7 +9,7 @@ class Decoder(nn.Module):
     """
     def __init__(self, normalization_stats, node_features_dim=128):
         super().__init__() # from python 3.7
-        self.l1 = nn.Linear(node_features_dim * 2, 64)
+        self.l1 = nn.Linear(node_features_dim, 64)
         self.l2 = nn.Linear(64, 32)
         self.l3 = nn.Linear(32, 2)
         # I need 2 dimensional output for x,y coordinates of the acceleration

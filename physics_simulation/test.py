@@ -1,6 +1,6 @@
 import os
-os.environ['ROOT_DATASET'] = 'dataset'
 from loader import prepare_data_from_tfds, prepare_data_from_tfds_test
+from builtins import config as conf
 from processor import Processor
 from decoder import Decoder
 from encoder import Encoder
@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import torch
 import datetime
 import json
+
+import builtins.config as conf
 
 # model is represented by the (encoder, processor, decoder) tuple
 
@@ -97,10 +99,10 @@ def roll_position(gnn_position, labels_est):
     rolled_position = gnn_position[:,1:,:]
     return torch.cat((rolled_position, labels_est.unsqueeze(1)), dim=1)
 if __name__ == "__main__":
-    os.environ['ROOT_DATASET'] = 'dataset'
+    conf.ROOT_DATASET = 'dataset'
     gnn_position = None
 
-    model = loadmodel("runs/fit/20221120-103911/models", 97000)
+    model = loadmodel("runs/fit/20221123-003344/models", 302000)
     # test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
     # test_ds = prepare_data_from_tfds_test(data_path='dataset/water_drop/valid.tfrecord', is_rollout=True, shuffle=False, batch_size=1)
     test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord', shuffle=False, batch_size=1)

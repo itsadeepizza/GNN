@@ -9,10 +9,14 @@ import time
 # import tabulate
 import numpy.random
 import numpy as np
+from builtins import config as conf
+
 
 class BaseTrainer():
 
-    def __init__(self, hyperparams: dict, device=None, seed=None):
+    def __init__(self):
+        seed = conf.SEED
+        device = conf.DEVICE
         if seed is None:
             seed = random.randint(0, 9999999)
         self.seed = seed
@@ -26,16 +30,10 @@ class BaseTrainer():
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = device
-        # SETTING PARAMETERS
-        self.hparams = hyperparams
-        for key, value in self.hparams.items():
-            setattr(self, key, value)
-
+        self.lr_init = conf.LR_INIT
+        self.lr = self.lr_init
         self.init_logger()
 
-    def do_each_n(self, i, n):
-        """Execute the event each n moves"""
-        return abs(i % n - 0.5 * n) < 0.5 * self.batch_size
 
     def init_logger(self):
         # TENSORBOARD AND LOGGING
@@ -51,7 +49,7 @@ class BaseTrainer():
         }
         now = datetime.datetime.now()
         now_str = now.strftime("%Y%m%d-%H%M%S")
-        self.log_dir = os.environ['ROOT_RUNS'] +  "runs/fit/" + now_str
+        self.log_dir = conf.ROOT_RUNS +  "runs/fit/" + now_str
         self.summary_dir = self.log_dir + "/summary"
         self.models_dir = self.log_dir + "/models"
         self.test_dir = self.log_dir + "/test"
@@ -78,10 +76,11 @@ class BaseTrainer():
         # self.writer.add_text("Hyperparameters", log_hparams)
 
     def report(self, i):
-        self.writer.add_scalar("loss_plot/train", self.mean_loss / self.interval_tensorboard, i)
+        self.writer.add_scalar("loss_plot/train", self.mean_loss / conf.INTERVAL_TENSORBOARD, i)
         tot_time = time.time() - self.timer
         self.timer = time.time()
-        self.writer.add_scalar("steps_for_second", self.interval_tensorboard / tot_time, i)
+        self.writer.add_scalar("steps_for_second", conf.INTERVAL_TENSORBOARD / tot_time, i)
+        self.writer.add_scalar("lr", self.lr, i)
 
     def save_model(self, model, name: str, i: int):
         path = os.path.join(self.models_dir, name)

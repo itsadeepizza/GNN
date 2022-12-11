@@ -1,16 +1,14 @@
-import torch
 import torch.nn as nn
 import torch.optim as optim
 import json
-from processor import Processor
-from decoder import Decoder
-from encoder import Encoder
+from builtins import config as conf
 from euler_integrator import integrator, get_acc
 from base_trainer import BaseTrainer
 from loader import prepare_data_from_tfds
 from benchmark import benchmark_nomove_acc, benchmark_noacc_acc, benchmark_nojerk_acc
 import torch
 from torch.optim.lr_scheduler import StepLR
+import os
 import matplotlib.pyplot as plt
 
 def add_noise(position: torch.Tensor, std=0):
@@ -23,11 +21,12 @@ def add_noise(position: torch.Tensor, std=0):
 
 class Trainer(BaseTrainer):
 
-    def __init__(self, hyperparams: dict, device=None, seed=None, load_path=None, load_idx=0):
-        super().__init__(hyperparams, device=device, seed=seed)
 
-        self.train_dataset = os.environ['ROOT_DATASET'] + '/water_drop/valid.tfrecord'
-        self.test_dataset = os.environ['ROOT_DATASET'] + '/water_drop/valid.tfrecord'
+    def __init__(self, load_path=None, load_idx=0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.train_dataset = conf.ROOT_DATASET + '/water_drop/valid.tfrecord'
+        self.test_dataset = conf.ROOT_DATASET + '/water_drop/valid.tfrecord'
 
         self.init_dataloader()
         self.init_models()
@@ -37,17 +36,17 @@ class Trainer(BaseTrainer):
         self.mean_loss_nojerk = 0
 
         self.loss_list = []
-        self.idx = self.load_idx
+        self.idx = load_idx
         self.load_path = load_path
         self.load_idx = load_idx
 
 
 
     def init_dataloader(self):
-        self.ds = prepare_data_from_tfds(data_path=self.train_dataset, batch_size=self.n_batch)
+        self.ds = prepare_data_from_tfds(data_path=self.train_dataset, batch_size=conf.N_BATCH)
         self.test_ds = prepare_data_from_tfds(data_path=self.test_dataset,
-                                              shuffle=False, batch_size=self.n_batch)
-        metadata_path = os.environ['ROOT_DATASET'] + "/water_drop/metadata.json"
+                                              shuffle=False, batch_size=conf.N_BATCH)
+        metadata_path = conf.ROOT_DATASET + "/water_drop/metadata.json"
         with open(metadata_path, 'rt') as f:
             metadata = json.loads(f.read())
         # num_steps = metadata['sequence_length'] - INPUT_SEQUENCE_LENGTH
@@ -64,38 +63,43 @@ class Trainer(BaseTrainer):
         self.bounds = torch.tensor(metadata["bounds"], device=self.device)
 
     def init_models(self):
+        from processor import Processor
+        from decoder import Decoder
+        from encoder import Encoder
 
         # INITIALISING MODELS
-        self.encoder = Encoder(self.normalization_stats, self.bounds, device=self.device, edge_features_dim=self.n_features, R=self.R)
-        self.proc = Processor(self.n_features, self.n_features, self.n_features, self.n_features, M=self.M, device=self.device)
-        self.decoder = Decoder(self.normalization_stats, node_features_dim=self.n_features).to(self.device)
+        self.encoder = Encoder(self.normalization_stats, self.bounds, device=self.device,
+                               edge_features_dim=conf.N_FEATURES, R=conf.R)
+        self.proc = Processor(conf.N_FEATURES, conf.N_FEATURES, conf.N_FEATURES, conf.N_FEATURES,
+                              M=conf.M, device=self.device)
+        self.decoder = Decoder(self.normalization_stats, node_features_dim=conf.N_FEATURES).to(self.device)
 
         self.models = [self.encoder, self.proc, self.decoder]
         for model in self.models:
             model.to(self.device)
 
-        if self.load_path is not None:
+        if conf.LOAD_PATH is not None:
             load_path = self.load_path
             load_idx = self.load_idx
-            encoder_w = torch.load(os.path.join(load_path, f"Encoder/encoder_{load_idx}.pth"))
+            encoder_w = torch.load(os.path.join(load_path, f"Encoder/Encoder_{load_idx}.pth"))
             self.encoder.load_state_dict(encoder_w)
             # self.encoder.eval()
 
-            processor_w = torch.load(os.path.join(load_path, f"Processor/processor_{load_idx}.pth"))
+            processor_w = torch.load(os.path.join(load_path, f"Processor/Processor_{load_idx}.pth"))
             self.proc.load_state_dict(processor_w)
             # self.processor.eval()
 
-            decoder_w = torch.load(os.path.join(load_path, f"Decoder/decoder_{load_idx}.pth"))
+            decoder_w = torch.load(os.path.join(load_path, f"Decoder/Decoder_{load_idx}.pth"))
             self.decoder.load_state_dict(decoder_w)
             # self.decoder.eval()
 
         # OPTIMIZER
-        self.opt_encoder = optim.Adam(self.encoder.parameters(), lr=self.lr)
-        self.opt_proc = optim.Adam(self.proc.parameters(), lr=self.lr)
-        self.opt_decoder = optim.Adam(self.decoder.parameters(), lr=self.lr)
+        self.opt_encoder = optim.Adam(self.encoder.parameters(), lr=conf.LR_INIT)
+        self.opt_proc = optim.Adam(self.proc.parameters(), lr=conf.LR_INIT)
+        self.opt_decoder = optim.Adam(self.decoder.parameters(), lr=conf.LR_INIT)
 
         self.optimizers = [self.opt_encoder, self.opt_proc, self.opt_decoder]
-        self.schedulers = [StepLR(optimizer, step_size=int(5e6), gamma=0.1) for optimizer in self.optimizers]
+        # self.schedulers = [StepLR(optimizer, step_size=int(5e6), gamma=0.1) for optimizer in self.optimizers]
 
 
 
@@ -140,7 +144,7 @@ class Trainer(BaseTrainer):
 
 
     def train(self):
-        for epoch in range(self.n_epochs):
+        for epoch in range(conf.N_EPOCHS):
             print("Epoch ", epoch)
             self.train_epoch()
             self.save_models(self.idx)
@@ -172,7 +176,7 @@ class Trainer(BaseTrainer):
                 raise RuntimeError("Ma allora particle type puo davvero essere diverso da 5 !")
 
             # add noise
-            positions = add_noise(positions, std=self.std_noise)
+            positions = add_noise(positions, std=conf.STD_NOISE)
 
             acc_pred = self.apply_model(positions, batch_index, normalise=True)
 
@@ -210,13 +214,17 @@ class Trainer(BaseTrainer):
             self.mean_loss_noacc += noacc_loss
             self.mean_loss_nojerk += nojerk_loss
             print("Loss is :", loss_logged)
-            if self.idx % self.interval_tensorboard == 0:
+            if self.idx % conf.INTERVAL_TENSORBOARD == 0:
                 self.report(self.idx)
-            if self.idx % 1000 == 0:
+            if self.idx % conf.INTERVAL_SAVE_UPDATE == 0:
                 self.save_models(self.idx)
                 self.test()
-
-            [schedule.step() for schedule in self.schedulers]
+                # UPDATE LR
+                self.lr = conf.LR_INIT * (conf.LR_DECAY ** (self.idx/conf.LR_STEP))
+                for optimizer in self.optimizers:
+                    for g in optimizer.param_groups:
+                        g['lr'] = self.lr
+            # [schedule.step() for schedule in self.schedulers]
 
     def save_models(self, i):
         for model in self.models:
@@ -234,8 +242,10 @@ class Trainer(BaseTrainer):
         self.loss_list = []
         super().report(i)
         # self.writer.add_scalar("loss_plot/nomove", self.mean_loss_nomove / self.interval_tensorboard, i)
-        self.writer.add_scalar("loss_plot/noacc", self.mean_loss_noacc / self.interval_tensorboard, i)
-        self.writer.add_scalar("loss_plot/nojerk", self.mean_loss_nojerk / self.interval_tensorboard, i)
+        self.writer.add_scalar("loss_plot/noacc", self.mean_loss_noacc /
+                               conf.INTERVAL_TENSORBOARD, i)
+        self.writer.add_scalar("loss_plot/nojerk", self.mean_loss_nojerk /
+                               conf.INTERVAL_TENSORBOARD, i)
         self.writer.add_scalar("loss_over_benchmark", self.mean_loss / self.mean_loss_noacc, i)
         self.mean_loss = 0
         self.mean_loss_nomove = 0
@@ -243,27 +253,7 @@ class Trainer(BaseTrainer):
         self.mean_loss_nojerk = 0
 
 
-if __name__ == "__main__":
-    import os
 
-    os.environ['ROOT_DATASET'] = "dataset/"
-    os.environ['ROOT_RUNS'] = './'
-    hyperparams = {
-        "n_batch": 2,
-        "lr": 1e-4,
-        "n_epochs": 20,
-        "interval_tensorboard": 100,
-        "n_features": 128,  # 128
-        "M": 10,  # 10
-        "R": 0.015,  # 0.015
-        "std_noise": 1e-5,
-        "load_path": None,# "runs/fit/20221120-103911/models",
-        "load_idx": 0
-        }
-    device = torch.device("cpu")
-
-    trainer = Trainer(hyperparams=hyperparams, seed=99, device=device)
-    trainer.train()
 
 
 #type "tensorboard --logdir=runs" in terminal
