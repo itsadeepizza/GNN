@@ -6,7 +6,7 @@ class Config():
     def __init__(config, **kwargs):
         config_variables_primitive = dict(
 
-        root = "Path(__file__).resolve().parents[0]",
+        root = Path(__file__).resolve().parents[0],
         N_BATCH=2,
         # LR is multiplied by LR_DECAY every LR_STEP
         LR_INIT=1E-4,

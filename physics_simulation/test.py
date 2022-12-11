@@ -1,6 +1,18 @@
+from config import Config
+import torch
+
+Config(ROOT_DATASET='dataset', ROOT_RUNS='./',
+
+    N_BATCH=2, LR=1E-4, N_EPOCHS=20, INTERVAL_TENSORBOARD=100, N_FEATURES=128,  # 128
+    M=10,  # 10
+    R=0.015,  # 0.015
+    STD_NOISE=1E-5, LOAD_PATH=None,  # RUNS/FIT/20221120-103911/MODELS,
+    LOAD_IDX=0, DEVICE=torch.device("cuda")
+
+    ).set_config()
+
 import os
 from loader import prepare_data_from_tfds, prepare_data_from_tfds_test
-from builtins import config as conf
 from processor import Processor
 from decoder import Decoder
 from encoder import Encoder
@@ -10,7 +22,7 @@ import torch
 import datetime
 import json
 
-import builtins.config as conf
+from builtins import config as conf
 
 # model is represented by the (encoder, processor, decoder) tuple
 
@@ -99,10 +111,11 @@ def roll_position(gnn_position, labels_est):
     rolled_position = gnn_position[:,1:,:]
     return torch.cat((rolled_position, labels_est.unsqueeze(1)), dim=1)
 if __name__ == "__main__":
+
     conf.ROOT_DATASET = 'dataset'
     gnn_position = None
 
-    model = loadmodel("runs/fit/20221123-003344/models", 302000)
+    model = loadmodel("runs/fit/20221211-150225/models", 220000)
     # test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
     # test_ds = prepare_data_from_tfds_test(data_path='dataset/water_drop/valid.tfrecord', is_rollout=True, shuffle=False, batch_size=1)
     test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord', shuffle=False, batch_size=1)

@@ -68,12 +68,14 @@ class BaseTrainer():
 
         # model_stat = f"```{str(torchsummary.summary(self.model()))}```"
         # self.writer.add_text("Torchsummary", model_stat)
-        # self.writer.add_text("Time", now.strftime("%a %d %b %y - %H:%M"))
+        #
         # self.writer.add_text("Model name", str(self.model.__name__))
         # self.writer.add_text("Model code", "```  \n" + inspect.getsource(self.model) + "  \n```")
-        # # log_hparams = tabulate.tabulate([[param, value] for param, value in self.hparams.items()],
-        # #                                 headers=["NAME", "VALUE"], tablefmt="pipe")
-        # self.writer.add_text("Hyperparameters", log_hparams)
+        self.writer.add_text("Time", now.strftime("%a %d %b %y - %H:%M"))
+        # Log a formatted configuration on tensorboard
+        config_as_table = "\n".join( [f"{param:>26} = {value}" for param, value in
+                                 conf.__dict__.items()])
+        self.writer.add_text("Configuration", config_as_table)
 
     def report(self, i):
         self.writer.add_scalar("loss_plot/train", self.mean_loss / conf.INTERVAL_TENSORBOARD, i)
