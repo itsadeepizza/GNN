@@ -9,7 +9,7 @@ import time
 # import tabulate
 import numpy.random
 import numpy as np
-from builtins import config as conf
+from config import selected_config as conf
 
 
 class BaseTrainer():

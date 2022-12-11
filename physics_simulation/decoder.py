@@ -1,7 +1,7 @@
 import torch
 from torch_geometric.data import Data
 import torch.nn as nn
-from builtins import config as conf
+from config import selected_config as conf
 
 class Decoder(nn.Module):
     """

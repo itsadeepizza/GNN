@@ -7,7 +7,7 @@ from torch_geometric.utils import degree
 import encoder
 from decoder import Decoder
 from euler_integrator import integrator
-
+from config import selected_config as conf
 
 # A stack of M GNs, each GN has 2 hidden layers + LayerNorm at the end, size is always 128 for all layers
 

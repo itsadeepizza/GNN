@@ -1,15 +1,7 @@
-from config import Config
+from config import selected_config as conf
 import torch
 
-Config(ROOT_DATASET='dataset', ROOT_RUNS='./',
 
-    N_BATCH=2, LR=1E-4, N_EPOCHS=20, INTERVAL_TENSORBOARD=100, N_FEATURES=128,  # 128
-    M=10,  # 10
-    R=0.015,  # 0.015
-    STD_NOISE=1E-5, LOAD_PATH=None,  # RUNS/FIT/20221120-103911/MODELS,
-    LOAD_IDX=0, DEVICE=torch.device("cuda")
-
-    ).set_config()
 
 import os
 from loader import prepare_data_from_tfds, prepare_data_from_tfds_test
@@ -22,7 +14,6 @@ import torch
 import datetime
 import json
 
-from builtins import config as conf
 
 # model is represented by the (encoder, processor, decoder) tuple
 
@@ -112,7 +103,16 @@ def roll_position(gnn_position, labels_est):
     return torch.cat((rolled_position, labels_est.unsqueeze(1)), dim=1)
 if __name__ == "__main__":
 
+    from config import selected_config as conf
+    import torch
+
+    conf.N_BATCH = 2
+    conf.LOAD_PATH = None  # RUNS/FIT/20221120-103911/MODELS,
+    conf.LOAD_IDX = 0
+    conf.DEVICE = torch.device("cuda")
+    conf.set_derivate_parameters()
     conf.ROOT_DATASET = 'dataset'
+    conf.ROOT_RUNS = './'
     gnn_position = None
 
     model = loadmodel("runs/fit/20221211-150225/models", 220000)

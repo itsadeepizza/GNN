@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.optim as optim
 import json
-from builtins import config as conf
+from config import selected_config as conf
 from euler_integrator import integrator, get_acc
 from base_trainer import BaseTrainer
 from loader import prepare_data_from_tfds

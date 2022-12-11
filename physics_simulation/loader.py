@@ -7,7 +7,7 @@ from processor import Processor
 from decoder import Decoder
 from encoder import Encoder
 from euler_integrator import integrator
-from builtins import config as conf
+from config import selected_config as conf
 
 def _read_metadata(data_path):
     metadata_path = conf.ROOT_DATASET + "/water_drop/metadata.json"

@@ -1,23 +1,15 @@
-from config import Config
+from config import selected_config as conf
 import torch
 
-Config(
-    ROOT_DATASET='dataset',
-    ROOT_RUNS='./',
 
-    N_BATCH= 2,
-    LR= 1E-4,
-    N_EPOCHS= 20,
-    INTERVAL_TENSORBOARD= 100,
-    N_FEATURES= 128,  # 128
-    M= 10,  # 10
-    R= 0.015,  # 0.015
-    STD_NOISE= 1E-5,
-    LOAD_PATH= None,# RUNS/FIT/20221120-103911/MODELS,
-    LOAD_IDX= 0,
-    DEVICE = torch.device("cuda")
+conf.N_BATCH= 2
+conf.LOAD_PATH= None# RUNS/FIT/20221120-103911/MODELS,
+conf.LOAD_IDX= 0
+conf.DEVICE = torch.device("cuda")
+conf.set_derivate_parameters()
+conf.ROOT_DATASET='dataset'
+conf.ROOT_RUNS='./'
 
-).set_config()
 
 from train import Trainer
 
