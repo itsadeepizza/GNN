@@ -5,9 +5,7 @@ from config import selected_config as conf
 from euler_integrator import integrator, get_acc
 from base_trainer import BaseTrainer
 from loader import prepare_data_from_tfds
-from benchmark import benchmark_nomove_acc, benchmark_noacc_acc, benchmark_nojerk_acc
 import torch
-from torch.optim.lr_scheduler import StepLR
 import os
 import matplotlib.pyplot as plt
 
@@ -37,7 +35,7 @@ class Trainer(BaseTrainer):
 
         self.loss_list = []
 
-        self.idx = conf.LOAD_IDX
+        # self.idx = conf.LOAD_IDX
         self.lr_init = conf.LR_INIT
         self.lr = self.lr_init * (conf.LR_DECAY ** (self.idx/conf.LR_STEP))
 
@@ -103,17 +101,9 @@ class Trainer(BaseTrainer):
 
 
 
-    def init_logger(self):
-        # TENSORBOARD AND LOGGING
-        super().init_logger()
-        self.mean_ratio_board = torch.zeros([1], device=self.device)
-        # variable to store the mean number of invalid moves (this value need to reduce)
-        self.mean_error_game = torch.zeros([1], device=self.device)
-
-
     def test(self):
-        n_test = 100
-        loss_test = 0
+        n_test = conf.N_TEST
+        mean_test_loss = 0
         for model in self.models:
             model.eval()
         for i, (features, labels) in zip(range(n_test), self.test_ds):
@@ -128,132 +118,103 @@ class Trainer(BaseTrainer):
                 acc_pred = self.apply_model(positions, batch_index)
             acc_norm = get_acc(positions, labels, self.normalization_stats)  # normalised
             loss = nn.MSELoss()(acc_pred, acc_norm)
-            loss_test += loss.item() / n_test
-        self.writer.add_scalar("loss_test", loss_test, self.idx)
+            mean_test_loss += loss.item() / n_test
 
-    def apply_model(self, positions, batch_index, normalise=True):
+        self.writer.add_scalar("loss_test", mean_test_loss, self.idx)
 
+    def apply_model(self, positions, batch_index):
+        """Run model on positions"""
         # Create graph with features
         data = self.encoder(positions, batch_index)
         # Process graph
         data = self.proc(data)
-        # print("Processed Data: ", data)
         # extract acceleration using decoder
         acc_pred = self.decoder(data)
         return acc_pred
 
 
     def train(self):
-        for epoch in range(conf.N_EPOCHS):
-            print("Epoch ", epoch)
-            self.train_epoch()
-            self.save_models(self.idx)
-
-
-    def train_epoch(self):
+        """Whole procedure for train"""
         for features, labels in self.ds:
-            for model in self.models:
-                model.train()
-            self.idx += 1
-            features['position'] = torch.tensor(features['position']).to(self.device)
-            features['n_particles_per_example'] = torch.tensor(
-                features['n_particles_per_example']).to(self.device)
-            features['particle_type'] = torch.tensor(features['particle_type']).to(self.device)
-            labels = torch.tensor(labels).to(self.device)
-            positions = features["position"]
-            # Create batch index tensor (which batch each particle is assigned)
-            batch_pos = features["n_particles_per_example"].cumsum(0)[:-1]
-            batch_index = torch.zeros([len(positions)])
-            batch_index[batch_pos] = 1
-            batch_index = batch_index.cumsum(0).to(self.device)
-
-            print(positions.shape)
-            # if positions.shape[0] < 1000:
-            #     continue
-
-            if any(features['particle_type'] != 5):
-                print(features['particle_type'].unique())
-                raise RuntimeError("Ma allora particle type puo davvero essere diverso da 5 !")
-
-            # add noise
-            positions = add_noise(positions, std=conf.STD_NOISE)
-
-            acc_pred = self.apply_model(positions, batch_index, normalise=True)
-
-            # ██╗   ██╗██████╗ ██████╗  █████╗ ████████╗███████╗
-            # ██║   ██║██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝██╔════╝
-            # ██║   ██║██████╔╝██║  ██║███████║   ██║   █████╗
-            # ██║   ██║██╔═══╝ ██║  ██║██╔══██║   ██║   ██╔══╝
-            # ╚██████╔╝██║     ██████╔╝██║  ██║   ██║   ███████╗
-            #  ╚═════╝ ╚═╝     ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝
-
-            # Ground truth normalised acceleration
-            acc_norm = get_acc(positions, labels, self.normalization_stats) #normalised
-            acc = get_acc(positions, labels, None) # original
-            # reset gradients
-            for opt in self.optimizers:
-                opt.zero_grad()
-            # calculate loss
-            loss = nn.MSELoss()(acc_pred, acc_norm) # use normalised acc for calculating loss
-            # backpropagation
-            loss.backward()
-            # update parameters
-            for opt in self.optimizers:
-                opt.step()
-            loss_logged = loss.item()
-
-            # Normalize outpout for better compairing with model predicted result
-            nomove_loss = benchmark_nomove_acc(positions, acc, self.normalization_stats[
-                'acceleration'])
-            noacc_loss = (acc_norm.detach() ** 2).mean() #benchmark_noacc_acc(position_with_noise, acc, self.normalization_stats['acceleration'])
-            nojerk_loss = benchmark_nojerk_acc(positions, acc, self.normalization_stats['acceleration'])
-
-            self.loss_list.append(loss_logged)
-            self.mean_loss += loss_logged
-            self.mean_loss_nomove += nomove_loss
-            self.mean_loss_noacc += noacc_loss
-            self.mean_loss_nojerk += nojerk_loss
-            print("Loss is :", loss_logged)
+            # predict, loss and backpropagation
+            self.train_sample(features, labels)
+            # Perform different opeartions at regular intervals
             if self.idx % conf.INTERVAL_TENSORBOARD == 0:
-                self.report(self.idx)
-            if self.idx % conf.INTERVAL_SAVE_UPDATE == 0:
+                # Write results on tensorboard
+                self.log_tensorboard()
+            if self.idx % conf.INTERVAL_SAVE_MODEL == 0:
+                # Save models as pth
                 self.save_models(self.idx)
-                self.test()
+            if self.idx % conf.INTERVAL_UPDATE_LR == 0:
                 # UPDATE LR
-                self.lr = conf.LR_INIT * (conf.LR_DECAY ** (self.idx/conf.LR_STEP))
+                self.lr = conf.LR_INIT * (conf.LR_DECAY ** (self.idx / conf.LR_STEP))
                 for optimizer in self.optimizers:
                     for g in optimizer.param_groups:
                         g['lr'] = self.lr
-            # [schedule.step() for schedule in self.schedulers]
+            if self.idx % conf.INTERVAL_TEST == 0:
+                # Test model
+                self.test()
 
-    def save_models(self, i):
+
+    def train_sample(self, features, labels):
+        self.idx += 1
+        predictions = self.make_prediction(features, labels)
+        loss = self.loss_calculation(features, labels, predictions).item()
+        self.mean_train_loss += loss
+        print(f"Step {self.idx} - Loss = {loss:.5f}")
+
+
+    def make_prediction(self, features, labels):
         for model in self.models:
-            self.save_model(model, model.__class__.__name__, i)
-        # Plot weights
+            model.train()
+
+        features['position'] = torch.tensor(features['position']).to(self.device)
+        features['n_particles_per_example'] = torch.tensor(features['n_particles_per_example']).to(
+            self.device)
+        # Type of particle (water, sand) We use only water, so no need for it
+        # features['particle_type'] = torch.tensor(features['particle_type']).to(self.device)
+
+        positions = features["position"]
+        # Create batch index tensor (which batch each particle is assigned, we need it for
+        # building graph)
+        batch_pos = features["n_particles_per_example"].cumsum(0)[:-1]
+        batch_index = torch.zeros([len(positions)])
+        batch_index[batch_pos] = 1
+        batch_index = batch_index.cumsum(0).to(self.device)
+
+        # add noise
+        positions = add_noise(positions, std=conf.STD_NOISE)
+        #apply model, it returns a normalised acceleration
+        acc_pred = self.apply_model(positions, batch_index)
+        return acc_pred
+
+
+    def loss_calculation(self, features, labels, predictions):
+        # Ground truth normalised acceleration
+        labels = torch.tensor(labels).to(self.device)
+        acc_norm = get_acc(features['position'], labels, self.normalization_stats)  # normalised
+        # reset gradients
+        for opt in self.optimizers:
+            opt.zero_grad()
+        # calculate loss
+        loss = nn.MSELoss()(predictions, acc_norm)  # use normalised acc for calculating loss
+        # backpropagation
+        loss.backward()
+        # update parameters
+        for opt in self.optimizers:
+            opt.step()
+        return loss
+
+
+    def save_models(self):
+        for model in self.models:
+            self.save_model(model, model.__class__.__name__)
+        # Plot weights as matrix - comment/uncomment below
         # self.writer.add_image("Encoder", self.plot_small_module(self.encoder, i), i)
         # self.writer.add_image("Proc - GN0", self.plot_small_module(self.proc.GNs[0], i), i)
         # self.writer.add_image("Proc - GN5", self.plot_small_module(self.proc.GNs[5], i), i)
         # # self.writer.add_image("Proc - GN9", self.plot_small_module(self.proc.GNs[9], i), i)
         # self.writer.add_image("Decoder", self.plot_small_module(self.decoder, i), i)
-
-
-
-    def report(self, i):
-        self.loss_list = []
-        super().report(i)
-        # self.writer.add_scalar("loss_plot/nomove", self.mean_loss_nomove / self.interval_tensorboard, i)
-        self.writer.add_scalar("loss_plot/noacc", self.mean_loss_noacc /
-                               conf.INTERVAL_TENSORBOARD, i)
-        self.writer.add_scalar("loss_plot/nojerk", self.mean_loss_nojerk /
-                               conf.INTERVAL_TENSORBOARD, i)
-        self.writer.add_scalar("loss_over_benchmark", self.mean_loss / self.mean_loss_noacc, i)
-        self.mean_loss = 0
-        self.mean_loss_nomove = 0
-        self.mean_loss_noacc = 0
-        self.mean_loss_nojerk = 0
-
-
-
 
 
 #type "tensorboard --logdir=runs" in terminal

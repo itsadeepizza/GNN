@@ -20,13 +20,24 @@ class Config():
     LOAD_PATH=None  # RUNS/FIT/20221120-103911/MODELS,
     LOAD_IDX=0
     SEED=99
-    INTERVAL_SAVE_UPDATE=2000
+    INTERVAL_SAVE_MODEL=2000
+    INTERVAL_UPDATE_LR=2000
+    INTERVAL_TEST=2000
+    N_TEST = 100
     DEVICE=torch.device('cpu')
 
     def set_derivate_parameters(config):
         """Set parameters which are derivate from other parameters"""
         config.ROOT_DATASET = config.root / 'dataset'
         config.ROOT_RUNS = config.root
+
+    def get(self, key, default_return_value=None):
+        """Safe metod to get an attribute. If the attribute does not exist it returns
+        None or a specified default value"""
+        if hasattr(self, key):
+            return self.__getattribute__(key)
+        else:
+            return default_return_value
 
 
 

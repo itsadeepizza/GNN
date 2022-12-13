@@ -1,3 +1,4 @@
+#Just a little script to download the dataset
 # {DATASET_NAME} one of the datasets following the naming used in the paper:
 #
 # WaterDrop

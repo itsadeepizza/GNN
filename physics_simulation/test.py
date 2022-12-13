@@ -1,10 +1,5 @@
-from config import selected_config as conf
-import torch
-
-
-
 import os
-from loader import prepare_data_from_tfds, prepare_data_from_tfds_test
+from loader import prepare_data_from_tfds
 from processor import Processor
 from decoder import Decoder
 from encoder import Encoder
@@ -106,16 +101,19 @@ if __name__ == "__main__":
     from config import selected_config as conf
     import torch
 
+    # WRITE HERE PATH AND IDX OF THE MODEL YOU NEED TO TEST
+    conf.LOAD_IDX = 466000
+    conf.LOAD_PATH = "runs/fit/20221211-150225/models"
+    #----------------------------------------------
+
     conf.N_BATCH = 2
-    conf.LOAD_PATH = None  # RUNS/FIT/20221120-103911/MODELS,
-    conf.LOAD_IDX = 0
     conf.DEVICE = torch.device("cuda")
     conf.set_derivate_parameters()
     conf.ROOT_DATASET = 'dataset'
     conf.ROOT_RUNS = './'
     gnn_position = None
 
-    model = loadmodel("runs/fit/20221211-150225/models", 220000)
+    model = loadmodel(conf.LOAD_PATH, conf.LOAD_IDX)
     # test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
     # test_ds = prepare_data_from_tfds_test(data_path='dataset/water_drop/valid.tfrecord', is_rollout=True, shuffle=False, batch_size=1)
     test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord', shuffle=False, batch_size=1)
@@ -137,7 +135,7 @@ if __name__ == "__main__":
         position = features["position"]
         batch_index = torch.zeros(len(position))
         if gnn_position is None:
-            print("Init position for GNN")
+            print("Initialise particles position")
             gnn_position = position
 
         #  █████╗ ██████╗ ██████╗ ██╗  ██╗   ██╗    ███╗   ███╗ ██████╗ ██████╗ ███████╗██╗
@@ -158,5 +156,9 @@ if __name__ == "__main__":
         gnn_position = roll_position(gnn_position, position_est)
 
         plot_particles(labels, position_est)
+
+        if step >= 200:
+            os.system(f"ffmpeg -f image2  -framerate 50 -i {frame_dir}/%004d.png animation.gif")
+            break
 
 #ffmpeg -f image2  -framerate 50 -i %004d.png animation.gif

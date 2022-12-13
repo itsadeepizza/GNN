@@ -2,7 +2,7 @@ import torch
 
 def integrator(position, acc):
     """
-    Calculate new position and speed using acceleration
+    Calculate new position and speed using acceleration (useful for testing multiple steps)
     position_i = (p_i ^ t(k - C), , ..., p_i ^ t(k-1), p_i ^ tk)
     acc = (p_i ^ tk'')
 
@@ -12,15 +12,13 @@ def integrator(position, acc):
     second_last_position = position[:, -1, :]
     second_last_speed = second_last_position - position[:, -2, :]
     last_speed = second_last_speed + acc
-    # print("second_last_speed", second_last_speed)
-    # print("last_speed", last_speed)
     last_position = second_last_position + last_speed
-    # new_position = torch.cat([position[:, 1:, :], last_position], 1)
     return last_position
 
 def get_acc(position, last_position, normalization_stats=None):
     """
-    Calculate ground truth acceleration using current  and next position
+    Calculate ground truth acceleration using current  and next position (useful for calculating
+    loss in train)
     position_i = (p_i ^ t_{k - C}, , ..., p_i ^ t_{k-1}, p_i ^ t_k)
     labels = p_i ^ t_{k+1}
 
@@ -34,10 +32,6 @@ def get_acc(position, last_position, normalization_stats=None):
 
         return (acceleration) / \
                normalization_stats['acceleration']['std']
-
-        return (acceleration - normalization_stats['acceleration']['mean'])/ \
-               normalization_stats['acceleration']['std']
-
 
     second_last_position = position[:, -1, :]
     last_speed = last_position - second_last_position

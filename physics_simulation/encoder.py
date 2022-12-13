@@ -113,17 +113,3 @@ class Encoder(nn.Module):
 
 
 
-if __name__ == "__main__":
-    N = 5
-    position = torch.randn(N, 6, 2)
-    # print(position)
-    # print(position2x(position))
-    r = 2
-    model = Encoder()
-    data = model(position)
-    plt.scatter(x=position[:, -1, 0], y=position[:, -1, 1])
-    plt.show()
-    print(data)
-
-
-
