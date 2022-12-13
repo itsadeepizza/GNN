@@ -30,8 +30,7 @@ class BaseTrainer():
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = device
-        self.lr_init = conf.LR_INIT
-        self.lr = self.lr_init
+
         self.init_logger()
 
 

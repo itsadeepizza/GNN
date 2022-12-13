@@ -36,8 +36,10 @@ class Trainer(BaseTrainer):
         self.mean_loss_nojerk = 0
 
         self.loss_list = []
-        self.idx = conf.LOAD_IDX
 
+        self.idx = conf.LOAD_IDX
+        self.lr_init = conf.LR_INIT
+        self.lr = self.lr_init * (conf.LR_DECAY ** (self.idx/conf.LR_STEP))
 
 
 
