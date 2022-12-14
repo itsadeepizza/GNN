@@ -38,6 +38,9 @@ class BaseTrainer():
         def generate_docker_style_name():
             """Generate name of the log folder"""
             import random
+            # name has to be randomly generated even if we had chosen a random seed
+            random_state = random.getstate()
+            random.seed()
 
             # Select a random adjective from a list of common adjectives
             adjectives = ['adorable', 'beautiful', 'clean', 'drab', 'elegant', 'fancy',
@@ -57,10 +60,13 @@ class BaseTrainer():
             now_str = datetime.datetime.now().strftime("%HH%M-%d-%m")
             # Combine the adjective, noun and date to form the name
             name = adjective + '_' + noun + '_' + now_str
+            random.setstate(random_state)
             return name
 
         # Create directories for logs
-        self.log_dir = conf.ROOT_RUNS + "runs/fit/" + generate_docker_style_name()
+
+        name = generate_docker_style_name()
+        self.log_dir = conf.ROOT_RUNS + "runs/fit/" + name
         self.summary_dir = self.log_dir + "/summary"
         self.models_dir = self.log_dir + "/models"
         self.test_dir = self.log_dir + "/test"

@@ -29,13 +29,6 @@ class Trainer(BaseTrainer):
         self.init_dataloader()
         self.init_models()
 
-        self.mean_loss_nomove = 0
-        self.mean_loss_noacc = 0
-        self.mean_loss_nojerk = 0
-
-        self.loss_list = []
-
-        # self.idx = conf.LOAD_IDX
         self.lr_init = conf.LR_INIT
         self.lr = self.lr_init * (conf.LR_DECAY ** (self.idx/conf.LR_STEP))
 
@@ -144,7 +137,7 @@ class Trainer(BaseTrainer):
                 self.log_tensorboard()
             if self.idx % conf.INTERVAL_SAVE_MODEL == 0:
                 # Save models as pth
-                self.save_models(self.idx)
+                self.save_models()
             if self.idx % conf.INTERVAL_UPDATE_LR == 0:
                 # UPDATE LR
                 self.lr = conf.LR_INIT * (conf.LR_DECAY ** (self.idx / conf.LR_STEP))
