@@ -83,9 +83,9 @@ class Trainer(BaseTrainer):
             # self.decoder.eval()
 
         # OPTIMIZER
-        self.opt_encoder = optim.Adam(self.encoder.parameters(), lr=conf.self.lr)
-        self.opt_proc = optim.Adam(self.proc.parameters(), lr=conf.self.lr)
-        self.opt_decoder = optim.Adam(self.decoder.parameters(), lr=conf.self.lr)
+        self.opt_encoder = optim.Adam(self.encoder.parameters(), lr=self.lr)
+        self.opt_proc = optim.Adam(self.proc.parameters(), lr=self.lr)
+        self.opt_decoder = optim.Adam(self.decoder.parameters(), lr=self.lr)
 
         self.optimizers = [self.opt_encoder, self.opt_proc, self.opt_decoder]
         # self.schedulers = [StepLR(optimizer, step_size=int(5e6), gamma=0.1) for optimizer in self.optimizers]
