@@ -29,10 +29,6 @@ class Trainer(BaseTrainer):
         self.init_dataloader()
         self.init_models()
 
-        self.lr_init = conf.LR_INIT
-        self.lr = self.lr_init * (conf.LR_DECAY ** (self.idx/conf.LR_STEP))
-
-
 
     def init_dataloader(self):
         self.ds = prepare_data_from_tfds(data_path=self.train_dataset, batch_size=conf.N_BATCH)
@@ -87,9 +83,9 @@ class Trainer(BaseTrainer):
             # self.decoder.eval()
 
         # OPTIMIZER
-        self.opt_encoder = optim.Adam(self.encoder.parameters(), lr=conf.LR_INIT)
-        self.opt_proc = optim.Adam(self.proc.parameters(), lr=conf.LR_INIT)
-        self.opt_decoder = optim.Adam(self.decoder.parameters(), lr=conf.LR_INIT)
+        self.opt_encoder = optim.Adam(self.encoder.parameters(), lr=conf.self.lr)
+        self.opt_proc = optim.Adam(self.proc.parameters(), lr=conf.self.lr)
+        self.opt_decoder = optim.Adam(self.decoder.parameters(), lr=conf.self.lr)
 
         self.optimizers = [self.opt_encoder, self.opt_proc, self.opt_decoder]
         # self.schedulers = [StepLR(optimizer, step_size=int(5e6), gamma=0.1) for optimizer in self.optimizers]
@@ -142,10 +138,11 @@ class Trainer(BaseTrainer):
                 self.save_models()
             if self.idx % conf.INTERVAL_UPDATE_LR == 0:
                 # UPDATE LR
-                self.lr = conf.LR_INIT * (conf.LR_DECAY ** (self.idx / conf.LR_STEP))
+                self.update_lr()
                 for optimizer in self.optimizers:
                     for g in optimizer.param_groups:
                         g['lr'] = self.lr
+
             if self.idx % conf.INTERVAL_TEST == 0:
                 # Test model
                 self.test()
@@ -157,6 +154,10 @@ class Trainer(BaseTrainer):
         loss = self.loss_calculation(features, labels, predictions).item()
         self.mean_train_loss += loss
         print(f"Step {self.idx} - Loss = {loss:.5f}")
+
+    # def update_lr(self):
+    #     self.lr = conf.LR_INIT * (conf.LR_DECAY ** (self.idx / conf.LR_STEP))
+    #
 
 
     def make_prediction(self, features, labels):

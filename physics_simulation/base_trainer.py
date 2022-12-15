@@ -28,8 +28,17 @@ class BaseTrainer():
 
         # Get idx
         self.idx = conf.get('LOAD_IDX', 0)
+        # Set learning rate
+        self.lr = self.update_lr()
 
         self.init_logger()
+
+    def update_lr(self):
+        # Generally you need to override this method in Trainer class
+        default_lr = 1e-5
+        self.lr = default_lr
+        print(f"Default LR is {default_lr:.3g}. Override class `update_lr` for setting custom "
+              f"values")
 
 
     def init_logger(self):
