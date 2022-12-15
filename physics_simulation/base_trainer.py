@@ -29,7 +29,7 @@ class BaseTrainer():
         # Get idx
         self.idx = conf.get('LOAD_IDX', 0)
         # Set learning rate
-        self.lr = self.update_lr()
+        self.update_lr()
 
         self.init_logger()
 
