@@ -71,16 +71,18 @@ class Trainer(BaseTrainer):
             model.to(self.device)
 
         if conf.LOAD_PATH is not None:
+            # I added "map_location=conf.DEVICE" to deal with error in google colab when gpu is
+            # not available
 
-            encoder_w = torch.load(os.path.join(conf.LOAD_PATH, f"Encoder/Encoder_{conf.LOAD_IDX}.pth"))
+            encoder_w = torch.load(os.path.join(conf.LOAD_PATH, f"Encoder/Encoder_{conf.LOAD_IDX}.pth"), map_location=conf.DEVICE)
             self.encoder.load_state_dict(encoder_w)
             # self.encoder.eval()
 
-            processor_w = torch.load(os.path.join(conf.LOAD_PATH, f"Processor/Processor_{conf.LOAD_IDX}.pth"))
+            processor_w = torch.load(os.path.join(conf.LOAD_PATH, f"Processor/Processor_{conf.LOAD_IDX}.pth"), map_location=conf.DEVICE)
             self.proc.load_state_dict(processor_w)
             # self.processor.eval()
 
-            decoder_w = torch.load(os.path.join(conf.LOAD_PATH, f"Decoder/Decoder_{conf.LOAD_IDX}.pth"))
+            decoder_w = torch.load(os.path.join(conf.LOAD_PATH, f"Decoder/Decoder_{conf.LOAD_IDX}.pth"), map_location=conf.DEVICE)
             self.decoder.load_state_dict(decoder_w)
             # self.decoder.eval()
 
@@ -112,7 +114,7 @@ class Trainer(BaseTrainer):
             acc_norm = get_acc(positions, labels, self.normalization_stats)  # normalised
             loss = nn.MSELoss()(acc_pred, acc_norm)
             mean_test_loss += loss.item() / n_test
-
+        print(f"Loss on test set is {mean_test_loss:.3f}")
         self.writer.add_scalar("loss_test", mean_test_loss, self.idx)
 
     def apply_model(self, positions, batch_index):

@@ -57,9 +57,9 @@ class BaseTrainer():
             noun = random.choice(nouns)
 
             # Add current datetime
-            now_str = datetime.datetime.now().strftime("%HH%M-%d-%m")
+            now_str = datetime.datetime.now().strftime("%y-%m-%d-%HH%M")
             # Combine the adjective, noun and date to form the name
-            name = adjective + '_' + noun + '_' + now_str
+            name = now_str + "_" + adjective + '_' + noun
             random.setstate(random_state)
             return name
 
