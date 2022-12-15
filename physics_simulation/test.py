@@ -102,7 +102,7 @@ if __name__ == "__main__":
     import torch
 
     # WRITE HERE PATH AND IDX OF THE MODEL YOU NEED TO TEST
-    conf.LOAD_IDX = 466000
+    conf.LOAD_IDX = 616000
     conf.LOAD_PATH = "runs/fit/20221211-150225/models"
     #----------------------------------------------
 
@@ -158,7 +158,10 @@ if __name__ == "__main__":
         plot_particles(labels, position_est)
 
         if step >= 200:
-            os.system(f"ffmpeg -f image2  -framerate 50 -i {frame_dir}/%004d.png animation.gif")
+            idx_as_str = f"{int(conf.LOAD_IDX / 1000)}k"
+            os.makedirs("animation", exist_ok=True)
+            os.system(f"ffmpeg -f image2  -framerate 50 -i {frame_dir}/%004d.png "
+                      f"animation/simulation_{idx_as_str}_{now_str}.gif")
             break
 
 #ffmpeg -f image2  -framerate 50 -i %004d.png animation.gif
