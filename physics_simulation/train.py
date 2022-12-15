@@ -155,9 +155,9 @@ class Trainer(BaseTrainer):
         self.mean_train_loss += loss
         print(f"Step {self.idx} - Loss = {loss:.5f}")
 
-    # def update_lr(self):
-    #     self.lr = conf.LR_INIT * (conf.LR_DECAY ** (self.idx / conf.LR_STEP))
-    #
+    def update_lr(self):
+        self.lr = conf.LR_INIT * (conf.LR_DECAY ** (self.idx / conf.LR_STEP))
+
 
 
     def make_prediction(self, features, labels):
