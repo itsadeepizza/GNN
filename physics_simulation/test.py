@@ -106,7 +106,7 @@ if __name__ == "__main__":
     conf.LOAD_PATH = "runs/fit/20221211-150225/models"
     #----------------------------------------------
 
-    conf.N_BATCH = 2
+    conf.N_BATCH = 1
     conf.DEVICE = torch.device("cuda")
     conf.set_derivate_parameters()
     conf.ROOT_DATASET = 'dataset'
