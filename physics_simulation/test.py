@@ -117,8 +117,11 @@ if __name__ == "__main__":
     # test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
     # test_ds = prepare_data_from_tfds_test(data_path='dataset/water_drop/valid.tfrecord', is_rollout=True, shuffle=False, batch_size=1)
     test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord', shuffle=False, batch_size=1)
-
-    for features, labels in test_ds:
+    iter_test_ds = iter(test_ds)
+    for features, labels in iter_test_ds:
+        if step == 0:
+            for i in range(100):
+                features, labels = next(iter_test_ds)
         step += 1
         print(step)
         # forward
