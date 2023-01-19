@@ -106,7 +106,9 @@ class Trainer(BaseTrainer):
             batch_index = batch_index.cumsum(0).to(self.device)
             labels = torch.tensor(labels).to(self.device)
             with torch.no_grad():
+                # model returns normalised predicted accelerations
                 acc_pred = self.apply_model(positions, batch_index)
+            # Calculate normalised ground truth accelerations
             acc_norm = get_acc(positions, labels, self.normalization_stats)  # normalised
             loss = nn.MSELoss()(acc_pred, acc_norm)
             mean_test_loss += loss.item() / n_test
@@ -180,7 +182,7 @@ class Trainer(BaseTrainer):
 
         # add noise
         positions = add_noise(positions, std=conf.STD_NOISE)
-        #apply model, it returns a normalised acceleration
+        # apply model, it returns a normalised acceleration
         acc_pred = self.apply_model(positions, batch_index)
         return acc_pred
 

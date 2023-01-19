@@ -13,12 +13,10 @@ import json
 # model is represented by the (encoder, processor, decoder) tuple
 
 device = torch.device("cpu")
-n_features = 128 #  128
-M = 10 # 10
 now_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 frame_dir = "frame/" + now_str
 os.makedirs(frame_dir, exist_ok=True)
-step = 0
+
 
 metadata_path = "dataset/water_drop/metadata.json"
 with open(metadata_path, 'rt') as f:
@@ -37,12 +35,13 @@ bounds = torch.tensor(metadata["bounds"], device=device)
 
 def loadmodel(path, idx):
 
-    encoder = Encoder(normalization_stats, bounds, device=device, edge_features_dim=n_features)
-    processor = Processor(n_features, n_features, n_features, n_features, M=M,
+    encoder = Encoder(normalization_stats, bounds, device=device, edge_features_dim=conf.N_FEATURES)
+    processor = Processor(conf.N_FEATURES, conf.N_FEATURES, conf.N_FEATURES, conf.N_FEATURES,
+                          M=conf.M,
                           device=device)
 
 
-    decoder = Decoder(normalization_stats, node_features_dim=n_features).to(device)
+    decoder = Decoder(normalization_stats, node_features_dim=conf.N_FEATURES).to(device)
 
     encoder_w = torch.load(os.path.join(path,f"Encoder/Encoder_{idx}.pth"))
     encoder.load_state_dict(encoder_w)
@@ -67,7 +66,7 @@ def predict(model, position, batch_index):
         data = encoder(position, batch_index)
         data = proc(data)
         # extract acceleration using decoder + euler integrator
-        acc = decoder(data, denormalize=False)
+        acc = decoder(data)
 
     return acc
 
@@ -84,7 +83,7 @@ def plot_particles(labels, labels_est):
     ax[0].set_ylim([bounds[1][0] - 0.1, bounds[1][1] + 0.1])
     ax[1].set_ylim([bounds[1][0] - 0.1, bounds[1][1] + 0.1])
     fig.savefig(os.path.join(frame_dir, f"{step:04d}"))
-    fig.show()
+    # fig.show()
 
 def integrate_position(positions, acc):
     """Return calculated new positions applying acceleration on old positions"""
@@ -101,70 +100,74 @@ if __name__ == "__main__":
     from config import selected_config as conf
     import torch
 
-    # WRITE HERE PATH AND IDX OF THE MODEL YOU NEED TO TEST
-    conf.LOAD_IDX = 616000
-    conf.LOAD_PATH = "runs/fit/20221211-150225/models"
-    #----------------------------------------------
+    for idx in range(50000, 950000, 50000):
 
-    conf.N_BATCH = 1
-    conf.DEVICE = torch.device("cuda")
-    conf.set_derivate_parameters()
-    conf.ROOT_DATASET = 'dataset'
-    conf.ROOT_RUNS = './'
-    gnn_position = None
+        # WRITE HERE PATH AND IDX OF THE MODEL YOU NEED TO TEST
+        conf.LOAD_IDX = idx
+        conf.LOAD_PATH = "runs/fit/colab_final"
+        #----------------------------------------------
+        print(idx)
+        conf.N_BATCH = 1
+        conf.DEVICE = torch.device("cpu")
+        conf.set_derivate_parameters()
+        conf.ROOT_DATASET = 'dataset'
+        conf.ROOT_RUNS = './'
+        gnn_position = None
 
-    model = loadmodel(conf.LOAD_PATH, conf.LOAD_IDX)
-    # test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
-    # test_ds = prepare_data_from_tfds_test(data_path='dataset/water_drop/valid.tfrecord', is_rollout=True, shuffle=False, batch_size=1)
-    test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord', shuffle=False, batch_size=1)
-    iter_test_ds = iter(test_ds)
-    for features, labels in iter_test_ds:
-        if step == 0:
-            for i in range(100):
-                features, labels = next(iter_test_ds)
-        step += 1
-        print(step)
-        # forward
-        # ███████╗██╗  ██╗████████╗██████╗  █████╗  ██████╗████████╗    ██╗███╗   ██╗███████╗ ██████╗
-        # ██╔════╝╚██╗██╔╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝    ██║████╗  ██║██╔════╝██╔═══██╗
-        # █████╗   ╚███╔╝    ██║   ██████╔╝███████║██║        ██║       ██║██╔██╗ ██║█████╗  ██║   ██║
-        # ██╔══╝   ██╔██╗    ██║   ██╔══██╗██╔══██║██║        ██║       ██║██║╚██╗██║██╔══╝  ██║   ██║
-        # ███████╗██╔╝ ██╗   ██║   ██║  ██║██║  ██║╚██████╗   ██║       ██║██║ ╚████║██║     ╚██████╔╝
-        # ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝   ╚═╝       ╚═╝╚═╝  ╚═══╝╚═╝      ╚═════╝
-        features['position'] = torch.tensor(features['position']).to(device)
-        features['n_particles_per_example'] = torch.tensor(features['n_particles_per_example']).to(device)
-        features['particle_type'] = torch.tensor(features['particle_type']).to(device)
-        labels = torch.tensor(labels).to(device)
-        position = features["position"]
-        batch_index = torch.zeros(len(position))
-        if gnn_position is None:
-            print("Initialise particles position")
-            gnn_position = position
+        model = loadmodel(conf.LOAD_PATH, idx)
+        # test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
+        # test_ds = prepare_data_from_tfds_test(data_path='dataset/water_drop/valid.tfrecord', is_rollout=True, shuffle=False, batch_size=1)
+        test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord', shuffle=False, batch_size=1)
+        step = 0
+        for features, labels in test_ds:
+            step += 1
+            print(step)
+            # forward
+            # ███████╗██╗  ██╗████████╗██████╗  █████╗  ██████╗████████╗    ██╗███╗   ██╗███████╗ ██████╗
+            # ██╔════╝╚██╗██╔╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝    ██║████╗  ██║██╔════╝██╔═══██╗
+            # █████╗   ╚███╔╝    ██║   ██████╔╝███████║██║        ██║       ██║██╔██╗ ██║█████╗  ██║   ██║
+            # ██╔══╝   ██╔██╗    ██║   ██╔══██╗██╔══██║██║        ██║       ██║██║╚██╗██║██╔══╝  ██║   ██║
+            # ███████╗██╔╝ ██╗   ██║   ██║  ██║██║  ██║╚██████╗   ██║       ██║██║ ╚████║██║     ╚██████╔╝
+            # ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝   ╚═╝       ╚═╝╚═╝  ╚═══╝╚═╝      ╚═════╝
+            features['position'] = torch.tensor(features['position']).to(device)
+            features['n_particles_per_example'] = torch.tensor(features['n_particles_per_example']).to(device)
+            features['particle_type'] = torch.tensor(features['particle_type']).to(device)
+            labels = torch.tensor(labels).to(device)
+            position = features["position"]
+            # batch_pos = features["n_particles_per_example"].cumsum(0)[:-1]
+            # Only one batch
+            batch_index = torch.zeros(len(position))
+            # batch_index[batch_pos] = 1
+            batch_index = batch_index.cumsum(0).to(device)
+            if gnn_position is None:
+                print("Initialise particles position")
+                gnn_position = position
 
-        #  █████╗ ██████╗ ██████╗ ██╗  ██╗   ██╗    ███╗   ███╗ ██████╗ ██████╗ ███████╗██╗
-        # ██╔══██╗██╔══██╗██╔══██╗██║  ╚██╗ ██╔╝    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝██║
-        # ███████║██████╔╝██████╔╝██║   ╚████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗  ██║
-        # ██╔══██║██╔═══╝ ██╔═══╝ ██║    ╚██╔╝      ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  ██║
-        # ██║  ██║██║     ██║     ███████╗██║       ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗███████╗
-        # ╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═╝       ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝
+            #  █████╗ ██████╗ ██████╗ ██╗  ██╗   ██╗    ███╗   ███╗ ██████╗ ██████╗ ███████╗██╗
+            # ██╔══██╗██╔══██╗██╔══██╗██║  ╚██╗ ██╔╝    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝██║
+            # ███████║██████╔╝██████╔╝██║   ╚████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗  ██║
+            # ██╔══██║██╔═══╝ ██╔═══╝ ██║    ╚██╔╝      ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  ██║
+            # ██║  ██║██║     ██║     ███████╗██║       ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗███████╗
+            # ╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═╝       ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝
 
-        acc_est_norm = predict(model, gnn_position, batch_index)
-        acc_est = acc_est_norm * normalization_stats['acceleration']['std']
-        # acc_est = acc_est_norm * normalization_stats['acceleration']['std'] + normalization_stats['acceleration']['mean']
-        acc = get_acc(gnn_position, labels)
-        acc_norm = get_acc(position, labels, normalization_stats)
-        print(acc_norm)
-        print(acc_est_norm)
-        position_est = integrator(gnn_position, acc_est)
-        gnn_position = roll_position(gnn_position, position_est)
+            # model returns normalised predicted accelerations
+            acc_est_norm = predict(model, gnn_position, batch_index)
+            acc_est = acc_est_norm * normalization_stats['acceleration']['std']
+            # acc_est = acc_est_norm * normalization_stats['acceleration']['std'] + normalization_stats['acceleration']['mean']
+            acc = get_acc(gnn_position, labels)
+            acc_norm = get_acc(position, labels, normalization_stats)
+            print(acc_norm)
+            print(acc_est_norm)
+            position_est = integrator(gnn_position, acc_est)
+            gnn_position = roll_position(gnn_position, position_est)
 
-        plot_particles(labels, position_est)
+            plot_particles(labels, position_est)
 
-        if step >= 200:
-            idx_as_str = f"{int(conf.LOAD_IDX / 1000)}k"
-            os.makedirs("animation", exist_ok=True)
-            os.system(f"ffmpeg -f image2  -framerate 50 -i {frame_dir}/%004d.png "
-                      f"animation/simulation_{idx_as_str}_{now_str}.gif")
-            break
+            if step >= 300:
+                idx_as_str = f"{int(conf.LOAD_IDX / 1000)}k"
+                os.makedirs("animation", exist_ok=True)
+                os.system(f"ffmpeg -f image2  -framerate 50 -i {frame_dir}/%004d.png "
+                          f"animation/simulation_{idx_as_str}_{now_str}.gif")
+                break
 
 #ffmpeg -f image2  -framerate 50 -i %004d.png animation.gif

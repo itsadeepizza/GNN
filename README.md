@@ -75,9 +75,37 @@ We remark that test loss of our model outperform the `wu375` repository during t
 The reason is plausibly in some errors in `wu375` code about residual layer implementation and MessagePassing forward.
 
 
-### Processor
+### Model
+
+- **Encoder**: Data about positions are used to generate a graph, each particle 
+is a node, close particles are linked by an arc. Past positions of particles are 
+used to obtain features for each node and arc.
+There are two strategies in making features:
+  - *absolute features*: Using absolute positions of the particles. It is more straightforward
+  and also easier for identify bounds, but the model will have some difficults in generating results
+  for other positions
+  - *relative features*: Using velocities for particle features and relative positions as arc features.
+  We used a mix of the two approaches, which is probably almost the same that using absolute features.
+  It would be interesting to test the model with only relative features, but the presence of bounds make it pretty
+  complicated, as giving the distance from the bound is the same that giving the absoluto position of the particle.
+
+
+- **Processor**: It is composed by a sequence of block. Each block is composed mainly by
+a convolutional GNN, but, convolution is performed on both node and edge features in
+order to obtain new node and edge features. Such a convolutional GNN was not present in
+pytorch library, so we implemented it using MessagePassing, which is a base class in pytorch_geometric
+for all GNN. However, we remark that in the paper (Appendix C.1) authors explains they detected
+no significant variation in disabling edges state update, which seems quite reasonable, as
+at the end there is probably a strong redondance with node state update.
+
+
+- **Decoder** : Just a MLP to distillate two values for each node (acceleration of the particle)
+
 
 ### Noise
+
+In the paper authors suggested to use random walk noise in position particles.
+We implemented a simpler gaussian noise 
 
 ### Normalisation
 
