@@ -100,7 +100,8 @@ if __name__ == "__main__":
     from config import selected_config as conf
     import torch
 
-    for idx in range(50000, 950000, 50000):
+    # for idx in range(50000, 950000, 50000):
+    for idx in [330000]:
 
         # WRITE HERE PATH AND IDX OF THE MODEL YOU NEED TO TEST
         conf.LOAD_IDX = idx

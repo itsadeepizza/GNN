@@ -152,8 +152,8 @@ class Trainer(BaseTrainer):
 
     def train_sample(self, features, labels):
         self.idx += 1
-        predictions = self.make_prediction(features, labels)
-        loss = self.loss_calculation(features, labels, predictions).item()
+        positions, predictions = self.make_prediction(features, labels)
+        loss = self.loss_calculation(positions, labels, predictions).item()
         self.mean_train_loss += loss
         print(f"Step {self.idx} - Loss = {loss:.5f}")
 
@@ -184,13 +184,13 @@ class Trainer(BaseTrainer):
         positions = add_noise(positions, std=conf.STD_NOISE)
         # apply model, it returns a normalised acceleration
         acc_pred = self.apply_model(positions, batch_index)
-        return acc_pred
+        return positions, acc_pred
 
 
-    def loss_calculation(self, features, labels, predictions):
+    def loss_calculation(self, positions, labels, predictions):
         # Ground truth normalised acceleration
         labels = torch.tensor(labels).to(self.device)
-        acc_norm = get_acc(features['position'], labels, self.normalization_stats)  # normalised
+        acc_norm = get_acc(positions, labels, self.normalization_stats)  # normalised
         # reset gradients
         for opt in self.optimizers:
             opt.zero_grad()
@@ -215,4 +215,4 @@ class Trainer(BaseTrainer):
         # self.writer.add_image("Decoder", self.plot_small_module(self.decoder, i), i)
 
 
-#type "tensorboard --logdir=runs" in terminal
+#type "tensorboard --logdir=runs --bind" in terminal
