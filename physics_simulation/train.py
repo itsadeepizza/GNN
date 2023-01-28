@@ -97,12 +97,12 @@ class Trainer(BaseTrainer):
         for model in self.models:
             model.eval()
         for i, (features, labels) in zip(range(n_test), self.test_ds):
-            positions = torch.tensor(features['position']).to(self.device)
+            positions = torch.tensor(features['position'])
             # Create batch index tensor (which batch each particle is assigned)
             batch_pos = features["n_particles_per_example"].cumsum(0)[:-1]
             batch_index = torch.zeros([len(positions)])
             batch_index[batch_pos] = 1
-            batch_index = batch_index.cumsum(0).to(self.device)
+            batch_index = batch_index.cumsum(0)
             labels = torch.tensor(labels).to(self.device)
             with torch.no_grad():
                 # model returns normalised predicted accelerations

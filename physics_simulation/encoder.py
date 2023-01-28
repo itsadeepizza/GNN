@@ -13,7 +13,8 @@ class Encoder(nn.Module):
     x.shape == Nx6x2
     v.shape == N x 128
     """
-    def __init__(self, normalization_stats, bounds, device, c=5, edge_features_dim=128, node_features_dim=128, R=0.015):
+    def __init__(self, normalization_stats, bounds, device=conf.DEVICE, c=5, edge_features_dim=128,
+                 node_features_dim=128, R=0.015):
         super().__init__() # from python 3.7
         self.device = device
         self.bounds = bounds
@@ -37,6 +38,10 @@ class Encoder(nn.Module):
 
     def forward(self, position, batch_index) -> Data:
         # Linearize x vector Nx6x2 -> Nx12
+
+        # Do this at the beginning before changing device
+        edge_index = self.get_adjacency_matrix(position, batch_index, self.r)
+        position = position.to(self.device)
         x = self.position2x(position)
         # x = x.flatten(1)
         x = self.l1(x)
@@ -47,7 +52,7 @@ class Encoder(nn.Module):
         x = self.layer_norm(x)
 
 
-        edge_index = self.get_adjacency_matrix(position, batch_index, self.r)
+
         # TODO: Self loops or not self loops ?
         # edge_index, _ = add_self_loops(edge_index, num_nodes=x.size(0))
         # a tensor of size E x 2
