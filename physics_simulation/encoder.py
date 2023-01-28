@@ -96,20 +96,20 @@ class Encoder(nn.Module):
         y_position = position[:, -1, 1].repeat(2, 1).swapaxes(0, 1)
         y_bounds = self.bounds[1,:].repeat(len(position), 1)
         y_bounds_distance = torch.clip(y_position - y_bounds, -1, 1)
-
-
         x = torch.cat([normalized_speeds.flatten(1), last_position.flatten(1), x_bounds_distance, y_bounds_distance], 1)
         return x
 
     @staticmethod
-    def get_adjacency_matrix(position, batch_index, r, max_neigh=32):
+    def get_adjacency_matrix(position, batch_index, r, max_neigh=conf.MAX_NEIGH):
         """
         Return an intersection matrix based on particle nearer than R
         """
         last_position = position[:, -1, :]
-        A = tg_nn.radius_graph(last_position, r, batch=batch_index, max_num_neighbors=max_neigh,
+        # TODO: For some hardware configuration, GPU does not work
+        A = tg_nn.radius_graph(last_position.to('cpu'), r, batch=batch_index.to('cpu'),
+                               max_num_neighbors=max_neigh,
                                loop=True)
-        return A
+        return A.to(conf.DEVICE)
 
 
 

@@ -101,11 +101,11 @@ if __name__ == "__main__":
     import torch
 
     # for idx in range(50000, 950000, 50000):
-    for idx in [330000]:
+    for idx in [500000]:
 
         # WRITE HERE PATH AND IDX OF THE MODEL YOU NEED TO TEST
         conf.LOAD_IDX = idx
-        conf.LOAD_PATH = "runs/fit/colab_final"
+        conf.LOAD_PATH = "runs/fit/local"
         #----------------------------------------------
         print(idx)
         conf.N_BATCH = 1

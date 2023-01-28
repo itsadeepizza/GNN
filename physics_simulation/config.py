@@ -25,6 +25,7 @@ class Config():
     INTERVAL_TEST=2000
     N_TEST = 100
     DEVICE=torch.device('cpu')
+    MAX_NEIGH = 6 # Max number of neighbours for each node
 
     def set_derivate_parameters(config):
         """Set parameters which are derivate from other parameters"""

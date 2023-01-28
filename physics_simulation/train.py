@@ -23,7 +23,7 @@ class Trainer(BaseTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.train_dataset = conf.ROOT_DATASET + '/water_drop/valid.tfrecord'
+        self.train_dataset = conf.ROOT_DATASET + '/water_drop/train.tfrecord'
         self.test_dataset = conf.ROOT_DATASET + '/water_drop/valid.tfrecord'
 
         self.init_dataloader()
@@ -89,7 +89,6 @@ class Trainer(BaseTrainer):
 
         self.optimizers = [self.opt_encoder, self.opt_proc, self.opt_decoder]
         # self.schedulers = [StepLR(optimizer, step_size=int(5e6), gamma=0.1) for optimizer in self.optimizers]
-
 
 
     def test(self):
