@@ -4,6 +4,12 @@
 import os
 import json
 from config import selected_config as conf
+import functools
+import tensorflow.compat.v1 as tf
+import tensorflow_datasets as tfds
+from lib import reading_utils
+import tree
+
 
 def _read_metadata(data_path):
     metadata_path = conf.ROOT_DATASET + "/water_drop/metadata.json"
@@ -12,11 +18,7 @@ def _read_metadata(data_path):
 
 
 def prepare_data_from_tfds(data_path, is_rollout=False, batch_size=2, shuffle=True):
-    import functools
-    import tensorflow.compat.v1 as tf
-    import tensorflow_datasets as tfds
-    from lib import reading_utils
-    import tree
+
     # from tfrecord.torch.dataset import TFRecordDataset
     def prepare_inputs(tensor_dict):
         pos = tensor_dict['position']
@@ -64,7 +66,9 @@ def prepare_data_from_tfds(data_path, is_rollout=False, batch_size=2, shuffle=Tr
         ds = ds.map(prepare_inputs)
         ds = ds.repeat()
         if shuffle:
-            ds = ds.shuffle(512)
+            # A bogger buffer_size means more randomness in the shuffling. As trajectories are 1000 steps long, we
+            # shuffle 10 trajectories at a time.
+            ds = ds.shuffle(buffer_size=10_000)
         ds = batch_concat(ds, batch_size)
     ds = tfds.as_numpy(ds)
     return ds
