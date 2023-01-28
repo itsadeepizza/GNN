@@ -12,8 +12,7 @@ import tree
 
 
 def _read_metadata(data_path):
-    metadata_path = conf.ROOT_DATASET + "/water_drop/metadata.json"
-    with open(metadata_path, 'r') as f:
+    with open(conf.METADATA, 'r') as f:
         return json.loads(f.read())
 
 

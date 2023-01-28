@@ -1,3 +1,6 @@
+from config import selected_config as conf
+conf.set_derivate_parameters()
+
 import os
 from loader import prepare_data_from_tfds
 from processor import Processor
@@ -18,8 +21,8 @@ frame_dir = "frame/" + now_str
 os.makedirs(frame_dir, exist_ok=True)
 
 
-metadata_path = "dataset/water_drop/metadata.json"
-with open(metadata_path, 'rt') as f:
+
+with open(conf.METADATA, 'rt') as f:
     metadata = json.loads(f.read())
 normalization_stats = {
         'acceleration': {
@@ -96,79 +99,71 @@ def roll_position(gnn_position, labels_est):
     rolled_position = gnn_position[:,1:,:]
     return torch.cat((rolled_position, labels_est.unsqueeze(1)), dim=1)
 if __name__ == "__main__":
+    #----------------------------------------------
+    # WRITE HERE PATH AND IDX OF THE MODEL YOU NEED TO TEST
+    conf.LOAD_IDX = 0
+    conf.LOAD_PATH = "runs/fit/local"
+    #----------------------------------------------
 
-    from config import selected_config as conf
-    import torch
+    conf.N_BATCH = 1
+    conf.DEVICE = torch.device("cpu")
 
-    # for idx in range(50000, 950000, 50000):
-    for idx in [500000]:
+    conf.ROOT_DATASET = 'dataset'
+    conf.ROOT_RUNS = './'
+    gnn_position = None
 
-        # WRITE HERE PATH AND IDX OF THE MODEL YOU NEED TO TEST
-        conf.LOAD_IDX = idx
-        conf.LOAD_PATH = "runs/fit/local"
-        #----------------------------------------------
-        print(idx)
-        conf.N_BATCH = 1
-        conf.DEVICE = torch.device("cpu")
-        conf.set_derivate_parameters()
-        conf.ROOT_DATASET = 'dataset'
-        conf.ROOT_RUNS = './'
-        gnn_position = None
+    model = loadmodel(conf.LOAD_PATH, conf.LOAD_IDX)
+    test_ds = prepare_data_from_tfds(data_path=conf.VALIDATION_DATASET, shuffle=False, batch_size=1)
+    step = 0
+    for features, labels in test_ds:
+        step += 1
+        print(step)
+        # forward
+        # ███████╗██╗  ██╗████████╗██████╗  █████╗  ██████╗████████╗    ██╗███╗   ██╗███████╗ ██████╗
+        # ██╔════╝╚██╗██╔╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝    ██║████╗  ██║██╔════╝██╔═══██╗
+        # █████╗   ╚███╔╝    ██║   ██████╔╝███████║██║        ██║       ██║██╔██╗ ██║█████╗  ██║   ██║
+        # ██╔══╝   ██╔██╗    ██║   ██╔══██╗██╔══██║██║        ██║       ██║██║╚██╗██║██╔══╝  ██║   ██║
+        # ███████╗██╔╝ ██╗   ██║   ██║  ██║██║  ██║╚██████╗   ██║       ██║██║ ╚████║██║     ╚██████╔╝
+        # ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝   ╚═╝       ╚═╝╚═╝  ╚═══╝╚═╝      ╚═════╝
+        features['position'] = torch.tensor(features['position']).to(device)
+        features['n_particles_per_example'] = torch.tensor(features['n_particles_per_example']).to(device)
+        features['particle_type'] = torch.tensor(features['particle_type']).to(device)
+        labels = torch.tensor(labels).to(device)
+        position = features["position"]
+        # batch_pos = features["n_particles_per_example"].cumsum(0)[:-1]
+        # Only one batch
+        batch_index = torch.zeros(len(position))
+        # batch_index[batch_pos] = 1
+        batch_index = batch_index.cumsum(0).to(device)
+        if gnn_position is None:
+            print("Initialise particles position")
+            gnn_position = position
 
-        model = loadmodel(conf.LOAD_PATH, idx)
-        # test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/train.tfrecord', shuffle=False, batch_size=1)
-        # test_ds = prepare_data_from_tfds_test(data_path='dataset/water_drop/valid.tfrecord', is_rollout=True, shuffle=False, batch_size=1)
-        test_ds = prepare_data_from_tfds(data_path='dataset/water_drop/valid.tfrecord', shuffle=False, batch_size=1)
-        step = 0
-        for features, labels in test_ds:
-            step += 1
-            print(step)
-            # forward
-            # ███████╗██╗  ██╗████████╗██████╗  █████╗  ██████╗████████╗    ██╗███╗   ██╗███████╗ ██████╗
-            # ██╔════╝╚██╗██╔╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝    ██║████╗  ██║██╔════╝██╔═══██╗
-            # █████╗   ╚███╔╝    ██║   ██████╔╝███████║██║        ██║       ██║██╔██╗ ██║█████╗  ██║   ██║
-            # ██╔══╝   ██╔██╗    ██║   ██╔══██╗██╔══██║██║        ██║       ██║██║╚██╗██║██╔══╝  ██║   ██║
-            # ███████╗██╔╝ ██╗   ██║   ██║  ██║██║  ██║╚██████╗   ██║       ██║██║ ╚████║██║     ╚██████╔╝
-            # ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝   ╚═╝       ╚═╝╚═╝  ╚═══╝╚═╝      ╚═════╝
-            features['position'] = torch.tensor(features['position']).to(device)
-            features['n_particles_per_example'] = torch.tensor(features['n_particles_per_example']).to(device)
-            features['particle_type'] = torch.tensor(features['particle_type']).to(device)
-            labels = torch.tensor(labels).to(device)
-            position = features["position"]
-            # batch_pos = features["n_particles_per_example"].cumsum(0)[:-1]
-            # Only one batch
-            batch_index = torch.zeros(len(position))
-            # batch_index[batch_pos] = 1
-            batch_index = batch_index.cumsum(0).to(device)
-            if gnn_position is None:
-                print("Initialise particles position")
-                gnn_position = position
+        #  █████╗ ██████╗ ██████╗ ██╗  ██╗   ██╗    ███╗   ███╗ ██████╗ ██████╗ ███████╗██╗
+        # ██╔══██╗██╔══██╗██╔══██╗██║  ╚██╗ ██╔╝    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝██║
+        # ███████║██████╔╝██████╔╝██║   ╚████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗  ██║
+        # ██╔══██║██╔═══╝ ██╔═══╝ ██║    ╚██╔╝      ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  ██║
+        # ██║  ██║██║     ██║     ███████╗██║       ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗███████╗
+        # ╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═╝       ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝
 
-            #  █████╗ ██████╗ ██████╗ ██╗  ██╗   ██╗    ███╗   ███╗ ██████╗ ██████╗ ███████╗██╗
-            # ██╔══██╗██╔══██╗██╔══██╗██║  ╚██╗ ██╔╝    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝██║
-            # ███████║██████╔╝██████╔╝██║   ╚████╔╝     ██╔████╔██║██║   ██║██║  ██║█████╗  ██║
-            # ██╔══██║██╔═══╝ ██╔═══╝ ██║    ╚██╔╝      ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  ██║
-            # ██║  ██║██║     ██║     ███████╗██║       ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗███████╗
-            # ╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═╝       ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝
+        # model returns normalised predicted accelerations
+        acc_est_norm = predict(model, gnn_position, batch_index)
+        acc_est = acc_est_norm * normalization_stats['acceleration']['std']
+        # acc_est = acc_est_norm * normalization_stats['acceleration']['std'] + normalization_stats['acceleration']['mean']
+        acc = get_acc(gnn_position, labels)
+        acc_norm = get_acc(position, labels, normalization_stats)
+        print(acc_norm)
+        print(acc_est_norm)
+        position_est = integrator(gnn_position, acc_est)
+        gnn_position = roll_position(gnn_position, position_est)
 
-            # model returns normalised predicted accelerations
-            acc_est_norm = predict(model, gnn_position, batch_index)
-            acc_est = acc_est_norm * normalization_stats['acceleration']['std']
-            # acc_est = acc_est_norm * normalization_stats['acceleration']['std'] + normalization_stats['acceleration']['mean']
-            acc = get_acc(gnn_position, labels)
-            acc_norm = get_acc(position, labels, normalization_stats)
-            print(acc_norm)
-            print(acc_est_norm)
-            position_est = integrator(gnn_position, acc_est)
-            gnn_position = roll_position(gnn_position, position_est)
+        plot_particles(labels, position_est)
 
-            plot_particles(labels, position_est)
-
-            if step >= 300:
-                idx_as_str = f"{int(conf.LOAD_IDX / 1000)}k"
-                os.makedirs("animation", exist_ok=True)
-                os.system(f"ffmpeg -f image2  -framerate 50 -i {frame_dir}/%004d.png "
-                          f"animation/simulation_{idx_as_str}_{now_str}.gif")
-                break
+        if step >= 300:
+            idx_as_str = f"{int(conf.LOAD_IDX / 1000)}k"
+            os.makedirs("animation", exist_ok=True)
+            os.system(f"ffmpeg -f image2  -framerate 50 -i {frame_dir}/%004d.png "
+                      f"animation/simulation_{idx_as_str}_{now_str}.gif")
+            break
 
 #ffmpeg -f image2  -framerate 50 -i %004d.png animation.gif

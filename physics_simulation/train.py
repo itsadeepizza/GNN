@@ -23,8 +23,8 @@ class Trainer(BaseTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.train_dataset = conf.ROOT_DATASET + '/water_drop/train.tfrecord'
-        self.test_dataset = conf.ROOT_DATASET + '/water_drop/valid.tfrecord'
+        self.train_dataset = conf.TRAIN_DATASET
+        self.validation_dataset = conf.VALIDATION_DATASET
 
         self.init_dataloader()
         self.init_models()
@@ -32,10 +32,10 @@ class Trainer(BaseTrainer):
 
     def init_dataloader(self):
         self.ds = prepare_data_from_tfds(data_path=self.train_dataset, batch_size=conf.N_BATCH)
-        self.test_ds = prepare_data_from_tfds(data_path=self.test_dataset,
+        self.test_ds = prepare_data_from_tfds(data_path=self.validation_dataset,
                                               shuffle=False, batch_size=conf.N_BATCH)
-        metadata_path = conf.ROOT_DATASET + "/water_drop/metadata.json"
-        with open(metadata_path, 'rt') as f:
+
+        with open(conf.METADATA, 'rt') as f:
             metadata = json.loads(f.read())
         # num_steps = metadata['sequence_length'] - INPUT_SEQUENCE_LENGTH
         self.normalization_stats = {

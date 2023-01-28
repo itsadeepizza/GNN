@@ -26,11 +26,16 @@ class Config():
     N_TEST = 100
     DEVICE=torch.device('cpu')
     MAX_NEIGH = 6 # Max number of neighbours for each node
+    DATASET_NAME = 'WaterDrop'
 
     def set_derivate_parameters(config):
         """Set parameters which are derivate from other parameters"""
         config.ROOT_DATASET = config.root / 'dataset'
         config.ROOT_RUNS = config.root
+        config.TRAIN_DATASET = config.ROOT_DATASET / (config.DATASET_NAME + '/train.tfrecord')
+        config.TEST_DATASET = config.ROOT_DATASET / (config.DATASET_NAME + '/test.tfrecord')
+        config.VALIDATION_DATASET = config.ROOT_DATASET / (config.DATASET_NAME +'/validation.tfrecord')
+        config.METADATA = config.ROOT_DATASET / (config.DATASET_NAME + '/metadata.json')
 
     def get(self, key, default_return_value=None):
         """Safe metod to get an attribute. If the attribute does not exist it returns

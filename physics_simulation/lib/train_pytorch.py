@@ -49,7 +49,7 @@ def get_random_walk_noise_for_position_sequence(position_sequence, noise_std_las
 
 
 def _read_metadata(data_path):
-    metadata_path = "../dataset/water_drop/metadata.json"
+    metadata_path = "../dataset/WaterDrop/metadata.json"
     with open(os.path.join(data_path, metadata_path), 'rt') as fp:
         return json.loads(fp.read())
 
@@ -561,7 +561,7 @@ def train(simulator):
 
 
 def infer(simulator):
-    test_path = "../dataset/water_drop/test.tfrecord"
+    test_path = "../dataset/WaterDrop/test.tfrecord"
     ds = prepare_data_from_tfds(data_path=test_path, is_rollout=True)
     eval_rollout(ds, simulator, num_steps=num_steps, save_results=True, device=device)
 
@@ -571,8 +571,8 @@ if __name__ == '__main__':
     os.makedirs('train_log', exist_ok=True)
     os.makedirs('rollouts', exist_ok=True)
 
-    test_path = "../dataset/water_drop/test.tfrecord"
-    metadata_path = "../dataset/water_drop/metadata.json"
+    test_path = "../dataset/WaterDrop/test.tfrecord"
+    metadata_path = "../dataset/WaterDrop/metadata.json"
 
     INPUT_SEQUENCE_LENGTH = 6
     batch_size = 1  # 2
