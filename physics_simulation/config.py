@@ -23,10 +23,14 @@ class Config():
     INTERVAL_SAVE_MODEL=2000
     INTERVAL_UPDATE_LR=2000
     INTERVAL_TEST=2000
+    INTERVAL_SIMULATION=50000
     N_TEST = 100
+    N_STEP = 100
     DEVICE=torch.device('cpu')
     MAX_NEIGH = 6 # Max number of neighbours for each node
     DATASET_NAME = 'WaterDrop'
+    FPS = 20
+
 
     def set_derivate_parameters(config):
         """Set parameters which are derivate from other parameters"""
@@ -34,8 +38,9 @@ class Config():
         config.ROOT_RUNS = str(config.root)
         config.TRAIN_DATASET = config.ROOT_DATASET + f"/{config.DATASET_NAME}/train.tfrecord"
         config.TEST_DATASET = config.ROOT_DATASET + f"/{config.DATASET_NAME}/test.tfrecord"
-        config.VALIDATION_DATASET = config.ROOT_DATASET + f"/{config.DATASET_NAME}/validation.tfrecord"
+        config.VALIDATION_DATASET = config.ROOT_DATASET + f"/{config.DATASET_NAME}/valid.tfrecord"
         config.METADATA = config.ROOT_DATASET + f"/{config.DATASET_NAME}/metadata.json"
+        config.ANIMATION_DIR = config.ROOT_RUNS + f"/animation"
 
     def get(self, key, default_return_value=None):
         """Safe metod to get an attribute. If the attribute does not exist it returns

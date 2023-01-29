@@ -12,7 +12,7 @@ import inspect
 
 class BaseTrainer():
 
-    def __init__(self):
+    def __init__(self, init_logger=True):
         # Init random seed
         seed = conf.get('SEED')
         if seed is None:
@@ -30,8 +30,8 @@ class BaseTrainer():
         self.idx = conf.get('LOAD_IDX', 0)
         # Set learning rate
         self.update_lr()
-
-        self.init_logger()
+        if init_logger:
+            self.init_logger()
 
     def update_lr(self):
         # Generally you need to override this method in Trainer class

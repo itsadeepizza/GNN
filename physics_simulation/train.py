@@ -8,9 +8,13 @@ from loader import prepare_data_from_tfds
 import torch
 import os
 import matplotlib.pyplot as plt
+import tempfile
+# For creating a gif
+import imageio
+import datetime
+
 
 def add_noise(position: torch.Tensor, std=0):
-
     noise = torch.randn(position.shape, device=position.device) * std
     noise[:, -1, :] = 0
     return position + noise
@@ -23,32 +27,31 @@ class Trainer(BaseTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.train_dataset = conf.TRAIN_DATASET
-        self.validation_dataset = conf.VALIDATION_DATASET
-
         self.init_dataloader()
         self.init_models()
 
 
     def init_dataloader(self):
-        self.ds = prepare_data_from_tfds(data_path=self.train_dataset, batch_size=conf.N_BATCH)
-        self.test_ds = prepare_data_from_tfds(data_path=self.validation_dataset,
-                                              shuffle=False, batch_size=conf.N_BATCH)
+        self.train_ds = prepare_data_from_tfds(data_path=conf.TRAIN_DATASET, batch_size=conf.N_BATCH)
+        self.validation_ds = prepare_data_from_tfds(data_path=conf.VALIDATION_DATASET,
+                                                    shuffle=False, batch_size=conf.N_BATCH)
+        self.test_ds = prepare_data_from_tfds(data_path=conf.TEST_DATASET,
+                                                    shuffle=False, batch_size=1)
 
         with open(conf.METADATA, 'rt') as f:
-            metadata = json.loads(f.read())
+            self.metadata = json.loads(f.read())
         # num_steps = metadata['sequence_length'] - INPUT_SEQUENCE_LENGTH
         self.normalization_stats = {
             'acceleration': {
-                'mean': torch.FloatTensor(metadata['acc_mean']).to(self.device),
-                'std': torch.FloatTensor(metadata['acc_std']).to(self.device),
+                'mean': torch.FloatTensor(self.metadata['acc_mean']).to(self.device),
+                'std': torch.FloatTensor(self.metadata['acc_std']).to(self.device),
                 },
             'velocity': {
-                'mean': torch.FloatTensor(metadata['vel_mean']).to(self.device),
-                'std': torch.FloatTensor(metadata['vel_std']).to(self.device),
+                'mean': torch.FloatTensor(self.metadata['vel_mean']).to(self.device),
+                'std': torch.FloatTensor(self.metadata['vel_std']).to(self.device),
                 },
             }
-        self.bounds = torch.tensor(metadata["bounds"], device=self.device)
+        self.bounds = torch.tensor(self.metadata["bounds"], device=self.device)
 
     def init_models(self):
         from processor import Processor
@@ -88,7 +91,6 @@ class Trainer(BaseTrainer):
         self.opt_decoder = optim.Adam(self.decoder.parameters(), lr=self.lr)
 
         self.optimizers = [self.opt_encoder, self.opt_proc, self.opt_decoder]
-        # self.schedulers = [StepLR(optimizer, step_size=int(5e6), gamma=0.1) for optimizer in self.optimizers]
 
 
     def test(self):
@@ -96,7 +98,7 @@ class Trainer(BaseTrainer):
         mean_test_loss = 0
         for model in self.models:
             model.eval()
-        for i, (features, labels) in zip(range(n_test), self.test_ds):
+        for i, (features, labels) in zip(range(n_test), self.validation_ds):
             positions = torch.tensor(features['position'])
             # Create batch index tensor (which batch each particle is assigned)
             batch_pos = features["n_particles_per_example"].cumsum(0)[:-1]
@@ -114,20 +116,90 @@ class Trainer(BaseTrainer):
         print(f"Loss on test set is {mean_test_loss:.3f}")
         self.writer.add_scalar("loss_test", mean_test_loss, self.idx)
 
-    def apply_model(self, positions, batch_index):
+    def simulate(self):
+        """Run a simulation where initial sates are the outputs of the previous iteration"""
+        def roll_position(gnn_position, labels_est):
+            # Roll the position tensor to the left and insert the estimated last position
+            rolled_position = gnn_position[:, 1:, :]
+            return torch.cat((rolled_position, labels_est.unsqueeze(1)), dim=1)
+
+        def plot_particles(dataset_positions, predicted_positions, step, frame_dir,
+                           bounds=self.metadata["bounds"]):
+            """Plot particles position with matplotlib"""
+            fig, ax = plt.subplots(ncols=2)
+            ax[0].scatter(x=dataset_positions[:, 0].to('cpu').numpy(), y=dataset_positions[:,
+                                                               1].to('cpu').numpy(),
+                          color='b', s=2)
+            ax[1].scatter(x=predicted_positions[:, 0].to('cpu').numpy(), y=predicted_positions[:, 1].to('cpu').numpy(), color='r', s=2)
+            ax[0].set_title("Ground trouth")
+            ax[1].set_title("Simulation")
+            ax[0].set_xlim([bounds[0][0] - 0.1, bounds[0][1] + 0.1])
+            ax[1].set_xlim([bounds[0][0] - 0.1, bounds[0][1] + 0.1])
+            ax[0].set_ylim([bounds[1][0] - 0.1, bounds[1][1] + 0.1])
+            ax[1].set_ylim([bounds[1][0] - 0.1, bounds[1][1] + 0.1])
+            fig.savefig(os.path.join(frame_dir, f"{step:04d}"))
+
+        # Create a temporary folder, deleted at the execution of the function
+        with tempfile.TemporaryDirectory() as tmpdirname:
+
+            n_step = conf.N_STEP
+            for model in self.models:
+                model.eval()
+            bounds = self.metadata["bounds"]
+            positions_pred = None
+            for i, (features, labels) in zip(range(n_step), self.test_ds):
+                print(f"Step {i+1}/{n_step}")
+                dataset_positions = torch.tensor(features['position'])
+                if positions_pred is None:
+                    simulation_positions = dataset_positions
+                else:
+                    simulation_positions = positions_pred
+                # Create batch index tensor (which batch each particle is assigned)
+                batch_index = torch.zeros([len(simulation_positions)])
+                labels = torch.tensor(labels).to(self.device)
+                with torch.no_grad():
+                    # model returns normalised predicted accelerations
+                    acc_pred = self.apply_model(simulation_positions, batch_index, denormalize=True)
+                # Move all tensors to the same device
+                simulation_positions = simulation_positions.to(conf.DEVICE)
+                last_position_pred = integrator(simulation_positions, acc_pred)
+                # Clip predicted positions to the bounds
+                last_position_pred[:,0] = last_position_pred[:,0].clamp(bounds[0][0], bounds[0][1])
+                last_position_pred[:,1] = last_position_pred[:, 1].clamp(bounds[1][0], bounds[1][1])
+
+                positions_pred = roll_position(simulation_positions, last_position_pred)
+                # Make plot
+                plot_particles(labels, last_position_pred, i, tmpdirname)
+            # Create gif
+            os.makedirs(conf.ANIMATION_DIR, exist_ok=True)
+            images = []
+            now_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+            idx_as_str = f"{int(conf.LOAD_IDX / 1000)}k"
+            print("Creating gif...", end="")
+            for filename in os.listdir(tmpdirname):
+                images.append(imageio.imread(os.path.join(tmpdirname, filename)))
+            imageio.mimsave(os.path.join(conf.ANIMATION_DIR,
+                                         f"simulation_{idx_as_str}_{now_str}.gif"),
+                            images,
+                            fps=conf.FPS)
+            print("Done")
+
+
+
+    def apply_model(self, positions, batch_index, denormalize=False):
         """Run model on positions"""
         # Create graph with features
         data = self.encoder(positions, batch_index)
         # Process graph
         data = self.proc(data)
         # extract acceleration using decoder
-        acc_pred = self.decoder(data)
+        acc_pred = self.decoder(data, denormalize=denormalize)
         return acc_pred
 
 
     def train(self):
         """Whole procedure for train"""
-        for features, labels in self.ds:
+        for features, labels in self.train_ds:
             # predict, loss and backpropagation
             self.train_sample(features, labels)
             # Perform different opeartions at regular intervals
@@ -143,15 +215,17 @@ class Trainer(BaseTrainer):
                 for optimizer in self.optimizers:
                     for g in optimizer.param_groups:
                         g['lr'] = self.lr
-
             if self.idx % conf.INTERVAL_TEST == 0:
                 # Test model
                 self.test()
+            if self.idx % conf.INTERVAL_SIMULATION == 0:
+                # Create simulation
+                self.simulate()
 
 
     def train_sample(self, features, labels):
         self.idx += 1
-        positions, predictions = self.make_prediction(features, labels)
+        positions, predictions = self.make_prediction(features)
         loss = self.loss_calculation(positions, labels, predictions).item()
         self.mean_train_loss += loss
         print(f"Step {self.idx} - Loss = {loss:.5f}")
@@ -161,7 +235,7 @@ class Trainer(BaseTrainer):
 
 
 
-    def make_prediction(self, features, labels):
+    def make_prediction(self, features):
         for model in self.models:
             model.train()
 
@@ -194,7 +268,8 @@ class Trainer(BaseTrainer):
         for opt in self.optimizers:
             opt.zero_grad()
         # calculate loss
-        loss = nn.MSELoss()(predictions, acc_norm)  # use normalised acc for calculating loss
+        loss = nn.MSELoss()(predictions, acc_norm)  # use normalised acc for
+        # calculating loss
         # backpropagation
         loss.backward()
         # update parameters

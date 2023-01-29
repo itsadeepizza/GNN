@@ -23,11 +23,10 @@ class Decoder(nn.Module):
         x = self.l2(x)
         x = torch.sigmoid(x)
         x = self.l3(x)
-        # if denormalize:
-        #     x = self.denormalize(x)
-
-        # x = torch.relu(x)
+        if denormalize:
+            x = self.denormalize(x)
         return x
 
-    # def denormalize(self, norm_acceleration):
-    #     return (norm_acceleration * self.normalization_stats['acceleration']['std']) + self.normalization_stats['acceleration']['mean']
+    def denormalize(self, norm_acceleration):
+        return (norm_acceleration * self.normalization_stats['acceleration']['std']) #+
+        # self.normalization_stats['acceleration']['mean']
