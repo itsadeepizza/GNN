@@ -15,105 +15,93 @@ This is the result achieved after 616k steps:
 
 ![GIF simulation](animation/simulation_616k_20221216-221417.gif)
 
-The simulation is far from perfect, but probably it could be improved training
-the model on the whole dataset. However, it shows the effectiveness of the model, 
-especially if we consider the fact that starting only from the initial positions, a 
-sequence of 200 frames is calculated, so errors cumulates very quickly.
+While the simulation is far from perfect, it still showcases the effectiveness of the model. It's worth noting that the model calculates 200 frames starting only from the initial positions, which can result in a significant accumulation of errors over time.
 
 
 ## Repository Structure
  
-We report most important files related to the project:
+Here are the most important files related to the project:
 ```
 GNN
 ├── README.md
-├── env.yml -> Conda environment 
+├── env.yml (Conda environment)
 └── physics_simulation
-    ├── animation   -> Contains gif of simulation from test.py 
-    ├── dataset     -> Contains dataset
+    ├── animation (contains the gif of the simulation from test.py)
+    ├── dataset (contains the dataset)
     │   └── waterdrop
     │       ├── metadata.json
     │       ├── train.tfrecord
     │       └── test.tfrecord
-    ├── frame       -> Contains single frame of simulation from test.py
-    ├── lib         -> Some inspiring code
-    ├── pretrained  -> Trained models 
-    ├── runs        -> Tensorboard logs and saved models
-    ├── __main__.py -> Use this to run train
-    ├── base_trainer.py -> Implement base trainer functionalities 
-    ├── config.py       -> Hyperparameters and paths
-    ├── encoder.py      -> Encoder model
-    ├── processor.py    -> Processor model
-    ├── decoder.py      -> Decoder model
-    ├── euler_integrator.py -> Calculate position from acceleration
-    ├── get_dataset.py  -> Download dataset
-    ├── loader.py       -> Load data from .tfrecord 
-    ├── test.py         -> Test trained model
-    ├── colab_train.ipynp   -> Train the model on Google Colab
-    └── train.py        -> Train model
+    ├── lib (contains code that hlped in the project, including reading_utils used in the dataloader)
+    ├── pretrained (contains trained models)
+    ├── runs (contains TensorBoard logs and saved models)
+    ├── __main__.py (used to run the training)
+    ├── base_trainer.py (implements base trainer functionality)
+    ├── config.py (contains hyperparameters and paths)
+    ├── encoder.py (Encoder model)
+    ├── processor.py (Processor model)
+    ├── decoder.py (Decoder model)
+    ├── euler_integrator.py (calculates positions from acceleration)
+    ├── get_dataset.py (downloads the dataset)
+    ├── loader.py (loads data from .tfrecord)
+    ├── make_animation.py (generates a simulation from a saved model)
+    ├── colab_train.ipynp (can be loaded on Colab to train the model on the cloud)
+    └── train.py (training script)
+
 ```
 
-- `animation`, `frame` Are used to generate simulation gif during test of the model.
-    You will need to have `ffmpeg` installed for generating the gif file;
+- `animation`, is used to generate simulation gif during test of the model.
+
 - `lib` Code from https://github.com/wu375/simple-physics-simulator-pytorch-geometry, we used it
  for loading tfrecord dataset;
-- `pretrained` you can directly load pretrained model from here;
-- `runs` Folder generated during train. A subfolder for each run is generated, containing
- tensorboard logs and saved models;
-- `base_trainer.py` a module we used also in other projects, it implements basic fonctionnality
- as logging and saving models;
-- `encoder.py`, `processor.py`, `decoder.py` constitues the three steps of the model;
-- `colab_train.ipynp` Load the file on Colab to train the model on the cloud platform from Google
+- Pretrained models can be found in the `pretrained` directory.
+- TensorBoard logs and saved models are stored in the `runs` directory, with a subfolder for each run;
+- `base_trainer.py` is a module used in other projects and implements basic logging and model-saving functionality;
+- `encoder.py`, `processor.py`, `decoder.py` make up the three components of the model.;
+- `colab_train.ipynp` Load the file on Colab to train the model on the cloud platform
 
 
 ## Remarks
 
 ### About `wu375` github repository
 
-Dataloader is taken from `wu375`, the remaining part of the code is developed independently.
-We remark that test loss of our model outperform the `wu375` repository during training.
-The reason is plausibly in some errors in `wu375` code about residual layer implementation and MessagePassing forward.
+The data loader in this repository was obtained from the wu375 repository, while the rest of the code was developed independently. Our model outperformed the wu375 repository in terms of test loss during training, likely due to errors in the residual layer implementation and message passing forward in the wu375 code.
 
 
 ### Model
 
-- **Encoder**: Data about positions are used to generate a graph, each particle 
-is a node, close particles are linked by an arc. Past positions of particles are 
-used to obtain features for each node and arc.
-There are two strategies in making features:
-  - *absolute features*: Using absolute positions of the particles. It is more straightforward
-  and also easier for identify bounds, but the model will have some difficults in generating results
-  for other positions
+- **Encoder**: The encoder uses particle position data to generate a graph, where each particle is represented as a node and close particles are connected by arcs. Features for each node and arc are generated using past particle positions. There are two strategies for generating features:
+  - *absolute features*:  Using absolute particle positions. This approach is straightforward and makes it easier to identify bounds, but the model may struggle to generate results for other positions.
   - *relative features*: Using velocities for particle features and relative positions as arc features.
-  We used a mix of the two approaches, which is probably almost the same that using absolute features.
-  It would be interesting to test the model with only relative features, but the presence of bounds make it pretty
-  complicated, as giving the distance from the bound is the same that giving the absoluto position of the particle.
+  This repository uses a mix of the two approaches, which is likely similar to using absolute features. It would be interesting to test the model using only relative features, but the presence of bounds makes this complicated as providing the distance from the bound is equivalent to providing the absolute particle position.
 
 
-- **Processor**: It is composed by a sequence of block. Each block is composed mainly by
-a convolutional GNN, but, convolution is performed on both node and edge features in
-order to obtain new node and edge features. Such a convolutional GNN was not present in
-pytorch library, so we implemented it using MessagePassing, which is a base class in pytorch_geometric
-for all GNN. However, we remark that in the paper (Appendix C.1) authors explains they detected
-no significant variation in disabling edges state update, which seems quite reasonable, as
-at the end there is probably a strong redondance with node state update.
+- **Processor**: The processor is a sequence of blocks, each of which mainly consists of a convolutional GNN that operates on both node and edge features to generate new node and edge features. This type of convolutional GNN was not available in the PyTorch library, so it was implemented using the MessagePassing class in the PyTorch Geometric library. It is noted that in the paper's appendix (C.1), the authors explain that they detected no significant difference in disabling edge state updates, which seems reasonable given the potential for strong redundancy with node state updates.
 
 
-- **Decoder** : Just a MLP to distillate two values for each node (acceleration of the particle)
+- **Decoder** : The decoder is a simple MLP that distills two values for each node (particle acceleration).
 
 
 ### Noise
 
-In the paper authors suggested to use random walk noise in position particles.
-We implemented a simpler gaussian noise 
+A random walk noise in particle positions was implemented, as suggested by the authors in the paper. 
+
+The effect of training with and without noise was tested. TODO.
 
 ### Normalisation
 
+Input velocities were normalized using the mean and standard deviation of the dataset, provided by the metadata file. The output acceleration was multiplied by the standard deviation to improve control over the learning rate.
+
 ### Learning Rate
+
+The initial learning rate was set to 1e-4 and was decreased by a factor of 10 every 500k steps.
 
 ## Conclusion
     
 ### Training time
 
+Training the model on a laptop was challenging due to the heavy computational demands and insufficient GPU memory. As a result, training was conducted on Google Colab (the relevant notebook is provided in the repository)
+
 ### Performance
 
+TODO

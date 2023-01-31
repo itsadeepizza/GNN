@@ -289,4 +289,4 @@ class Trainer(BaseTrainer):
         # self.writer.add_image("Decoder", self.plot_small_module(self.decoder, i), i)
 
 
-#type "tensorboard --logdir=runs --bind" in terminal
+#type "tensorboard --logdir=runs --bind_all" in terminal
